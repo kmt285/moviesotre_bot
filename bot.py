@@ -1,3 +1,7 @@
+import motor.motor_asyncio
+from pyrogram import Client, filters
+from pyrogram.errors import UserNotParticipant
+import logging
 from flask import Flask
 from threading import Thread
 import os
@@ -25,10 +29,6 @@ if __name__ == "__main__":
     keep_alive()  # Web server ကို အရင်ဖွင့်မည်
     print("Bot is starting...")
     app.run()     # Bot ကို run မည်
-import motor.motor_asyncio
-from pyrogram import Client, filters
-from pyrogram.errors import UserNotParticipant
-import logging
 
 # --- ပြင်ဆင်ရန် အချက်အလက်များ (Config) ---
 API_ID = 35287678               # သင့် API ID
@@ -115,3 +115,4 @@ async def handle_search(client, message):
 print("Bot စတင်လည်ပတ်နေပါပြီ...")
 
 app.run()
+
