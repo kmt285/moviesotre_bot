@@ -12,7 +12,7 @@ API_ID = 35287678
 API_HASH = "0b665ada43d12930d92f00827edf79da"
 BOT_TOKEN = "8221461909:AAGZB6sR1evyaqivvQ4WBjNTLxkEpo-m8nU"
 # <db_password> နေရာမှာ kyaw123 လို့ ပြောင်းလဲပြင်ဆင်ပေးထားပါတယ်
-MONGO_URI = "mongodb+srv://kyawmintuntg_admin_db:Www.kmt285476.com@cluster0.vll2nc2.mongodb.net/?appName=Cluster0"
+MONGO_URI = "mongodb+srv://kyawmintuntg_admin_db:Www.285476@cluster0.vll2nc2.mongodb.net/?appName=Cluster0"
 
 MEMBER_CHANNEL_ID = -1003193370007
 PORTAL_CHANNEL_ID = -1003216556662
@@ -107,4 +107,5 @@ if __name__ == "__main__":
     keep_alive()  # Flask server ကို အရင်စမည်
     print("Bot စတင်လည်ပတ်နေပါပြီ...")
     app.run()     # Bot စတင်မည်
+
 
