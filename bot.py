@@ -1,3 +1,30 @@
+from flask import Flask
+from threading import Thread
+import os
+
+# Web Server ဆောက်ခြင်း (Koyeb အတွက်)
+web_app = Flask('')
+
+@web_app.route('/')
+def home():
+    return "Bot is Running!"
+
+def run():
+    # Koyeb သည် $PORT အား အသုံးပြုသောကြောင့် ပတ်ဝန်းကျင်မှ Port ကိုယူပါ
+    port = int(os.environ.get("PORT", 8000))
+    web_app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# --- သင်၏ အရင် Code ဟောင်းများ ဤအောက်တွင် ဆက်လက်ရှိရမည် ---
+# ... (Client, Mongo, Start command စသည်တို့)
+
+if __name__ == "__main__":
+    keep_alive()  # Web server ကို အရင်ဖွင့်မည်
+    print("Bot is starting...")
+    app.run()     # Bot ကို run မည်
 import motor.motor_asyncio
 from pyrogram import Client, filters
 from pyrogram.errors import UserNotParticipant
@@ -86,4 +113,5 @@ async def handle_search(client, message):
         await message.reply_text("🔍 တောင်းပန်ပါတယ်။ ရုပ်ရှင်ရှာမတွေ့ပါ။ နာမည်/ID မှန်ကန်အောင် ပြန်ရိုက်ကြည့်ပါ။")
 
 print("Bot စတင်လည်ပတ်နေပါပြီ...")
+
 app.run()
