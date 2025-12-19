@@ -48,6 +48,9 @@ async def index_files(client, message):
     status = await message.reply_text("🔄 Indexing စတင်နေပါပြီ...")
     count = 0
     try:
+
+        target_chat = PORTAL_CHANNEL_ID
+        
         async for msg in client.get_chat_history(PORTAL_CHANNEL_ID, limit=1000):
             if msg.video and msg.caption:
                 await collection.update_one(
@@ -94,6 +97,7 @@ if __name__ == "__main__":
     # Bot ကို run မယ်
     print("🚀 Bot is starting...")
     app.run()
+
 
 
 
