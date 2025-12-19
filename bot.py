@@ -59,7 +59,7 @@ async def index_files(client, message):
     status = await message.reply_text("🔄 Indexing စတင်နေပါပြီ... ခဏစောင့်ပါ။")
     count = 0
     # Portal Channel ထဲက ဗီဒီယိုများကို ရှာဖွေမှတ်သားခြင်း
-    async for msg in client.search_messages(PORTAL_CHANNEL_ID, filter="video"):
+    async for msg in client.search_messages(PORTAL_CHANNEL_ID, filter=enums.MessagesFilter.VIDEO):
         if msg.caption:
             await collection.update_one(
                 {"msg_id": msg.id},
@@ -107,5 +107,6 @@ if __name__ == "__main__":
     keep_alive()  # Flask server ကို အရင်စမည်
     print("Bot စတင်လည်ပတ်နေပါပြီ...")
     app.run()     # Bot စတင်မည်
+
 
 
