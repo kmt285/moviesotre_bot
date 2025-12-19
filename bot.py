@@ -13,9 +13,9 @@ API_HASH = "0b665ada43d12930d92f00827edf79da"
 BOT_TOKEN = "8221461909:AAGZB6sR1evyaqivvQ4WBjNTLxkEpo-m8nU"
 MONGO_URI = "mongodb+srv://kyawmintuntg_admin_db:Wwwkmt285@cluster0.vll2nc2.mongodb.net/?appName=Cluster0"
 
-MEMBER_CHANNEL_ID = -1003193370007
-PORTAL_CHANNEL_ID = -1003276114220 
-OWNER_ID = 7812553563
+MEMBER_CHANNEL_ID = "-1003193370007"
+PORTAL_CHANNEL_ID = "-1003276114220"
+OWNER_ID = "7812553563"
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -94,5 +94,6 @@ if __name__ == "__main__":
     # Bot ကို run မယ်
     print("🚀 Bot is starting...")
     app.run()
+
 
 
