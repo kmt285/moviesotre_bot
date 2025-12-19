@@ -52,7 +52,7 @@ async def index_files(client, message):
     count = 0
     try:
         # filter နေရာတွင် enums ကို အသုံးပြုထားပါသည်
-        async for msg in client.search_messages(PORTAL_CHANNEL_ID, filter=enums.MessagesFilter.VIDEO):
+        async for msg in client.get_chat_history(PORTAL_CHANNEL_ID, filter=enums.MessagesFilter.VIDEO):
             if msg.caption:
                 await collection.update_one(
                     {"msg_id": msg.id},
@@ -101,5 +101,6 @@ if __name__ == "__main__":
     keep_alive()
     print("Bot is starting...")
     app.run()
+
 
 
