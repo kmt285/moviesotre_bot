@@ -1,5 +1,5 @@
 import motor.motor_asyncio
-from pyrogram import Client, filters, enums  # enums ကို ဤနေရာတွင် import လုပ်ထားရပါမည်
+from pyrogram import Client, filters, enums
 from pyrogram.errors import UserNotParticipant
 import logging
 from flask import Flask
@@ -10,7 +10,7 @@ import os
 API_ID = 35287678
 API_HASH = "0b665ada43d12930d92f00827edf79da"
 BOT_TOKEN = "8221461909:AAGZB6sR1evyaqivvQ4WBjNTLxkEpo-m8nU"
-# Password ကို kyaw123 အဖြစ် အသေအချာ ထည့်ပေးထားသည်
+# MONGO_URI ကို အောက်တွင် အမှန်အတိုင်း ထည့်ပေးထားသည်
 MONGO_URI = "mongodb+srv://kyawmintuntg_admin_db:Www.285476@cluster0.vll2nc2.mongodb.net/?appName=Cluster0"
 
 MEMBER_CHANNEL_ID = -1003193370007
@@ -28,7 +28,7 @@ db_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = db_client["movie_db"]
 collection = db["movies"]
 
-# --- (၃) Web Server Setup (Koyeb အတွက်) ---
+# --- (၃) Web Server Setup (Koyeb Health Check အတွက်) ---
 web_app = Flask('')
 @web_app.route('/')
 def home(): return "Bot is Alive!"
@@ -51,15 +51,15 @@ async def index_files(client, message):
     status = await message.reply_text("🔄 Indexing စတင်နေပါပြီ... ခဏစောင့်ပါ။")
     count = 0
     try:
-        # filter နေရာတွင် enums ကို အသုံးပြုထားပါသည်
+        # Indentation (အကွာအဝေး) ကို ဤနေရာတွင် မှန်ကန်အောင် ပြင်ထားသည်
         async for msg in client.get_chat_history(PORTAL_CHANNEL_ID):
-    if msg.video and msg.caption:
-        await collection.update_one(
-            {"msg_id": msg.id},
-            {"$set": {"file_name": msg.caption.lower(), "msg_id": msg.id}},
-            upsert=True
-        )
-        count += 1
+            if msg.video and msg.caption:
+                await collection.update_one(
+                    {"msg_id": msg.id},
+                    {"$set": {"file_name": msg.caption.lower(), "msg_id": msg.id}},
+                    upsert=True
+                )
+                count += 1
         await status.edit(f"✅ လုပ်ငန်းပြီးဆုံးပါပြီ။ စုစုပေါင်း ရုပ်ရှင် {count} ကားကို မှတ်သားပြီးပါပြီ။")
     except Exception as e:
         await status.edit(f"❌ Error: {e}")
@@ -73,7 +73,6 @@ async def handle_search(client, message):
     except UserNotParticipant:
         return await message.reply_text("⛔️ သင်သည် Member မဟုတ်သေးပါ။ Channel တွင် Member အရင်ဝင်ပေးပါ။")
     except Exception as e:
-        # Peer id invalid ဖြစ်နေပါက အောက်ပါအတိုင်း ပြန်ပြောပါမည်
         logging.error(f"Member check error: {e}")
         return
 
@@ -101,7 +100,3 @@ if __name__ == "__main__":
     keep_alive()
     print("Bot is starting...")
     app.run()
-
-
-
-
