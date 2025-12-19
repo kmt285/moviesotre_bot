@@ -11,7 +11,7 @@ import asyncio
 API_ID = 35287678
 API_HASH = "0b665ada43d12930d92f00827edf79da"
 BOT_TOKEN = "8221461909:AAGZB6sR1evyaqivvQ4WBjNTLxkEpo-m8nU"
-MONGO_URI = "mongodb+srv://kyawmintuntg_admin_db:Www.285476@cluster0.vll2nc2.mongodb.net/?appName=Cluster0"
+MONGO_URI = "mongodb+srv://kyawmintuntg_admin_db:Wwwkmt285@cluster0.vll2nc2.mongodb.net/?appName=Cluster0"
 
 MEMBER_CHANNEL_ID = -1003193370007
 PORTAL_CHANNEL_ID = -1003276114220  # Main Channel ID
@@ -24,6 +24,19 @@ logging.basicConfig(level=logging.INFO)
 db_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
 db = db_client["movie_db"]
 collection = db["movies"]
+
+async def check_mongo():
+    try:
+        await db_client.admin.command('ping')
+        print("✅ MongoDB ချိတ်ဆက်မှု အောင်မြင်ပါသည်!")
+    except Exception as e:
+        print(f"❌ MongoDB ချိတ်ဆက်မှု မအောင်မြင်ပါ: {e}")
+
+# main ထဲမှာ check_mongo() ကို ခေါ်ခိုင်းပါ
+if __name__ == "__main__":
+    Thread(target=run_web).start()
+    asyncio.get_event_loop().run_until_complete(check_mongo()) # ချိတ်ဆက်မှု စစ်ဆေးမည်
+    app.run()
 
 # --- (၃) Health Check Server ---
 web_app = Flask('')
@@ -91,3 +104,4 @@ async def handle_search(client, message):
 if __name__ == "__main__":
     Thread(target=run_web).start()
     app.run()
+
