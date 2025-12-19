@@ -14,7 +14,7 @@ BOT_TOKEN = "8221461909:AAGZB6sR1evyaqivvQ4WBjNTLxkEpo-m8nU"
 MONGO_URI = "mongodb+srv://kyawmintuntg_admin_db:Www.285476@cluster0.vll2nc2.mongodb.net/?appName=Cluster0"
 
 MEMBER_CHANNEL_ID = -1003193370007
-PORTAL_CHANNEL_ID = -1003216556662
+PORTAL_CHANNEL_ID = -1003276114220
 OWNER_ID = 7812553563
 
 # --- (၂) Bot Client သတ်မှတ်ခြင်း ---
@@ -101,4 +101,5 @@ if __name__ == "__main__":
     keep_alive()
     print("Bot is starting...")
     app.run()
+
 
