@@ -52,14 +52,14 @@ async def index_files(client, message):
     count = 0
     try:
         # filter နေရာတွင် enums ကို အသုံးပြုထားပါသည်
-        async for msg in client.get_chat_history(PORTAL_CHANNEL_ID, filter=enums.MessagesFilter.VIDEO):
-            if msg.caption:
-                await collection.update_one(
-                    {"msg_id": msg.id},
-                    {"$set": {"file_name": msg.caption.lower(), "msg_id": msg.id}},
-                    upsert=True
-                )
-                count += 1
+        async for msg in client.get_chat_history(PORTAL_CHANNEL_ID):
+    if msg.video and msg.caption:
+        await collection.update_one(
+            {"msg_id": msg.id},
+            {"$set": {"file_name": msg.caption.lower(), "msg_id": msg.id}},
+            upsert=True
+        )
+        count += 1
         await status.edit(f"✅ လုပ်ငန်းပြီးဆုံးပါပြီ။ စုစုပေါင်း ရုပ်ရှင် {count} ကားကို မှတ်သားပြီးပါပြီ။")
     except Exception as e:
         await status.edit(f"❌ Error: {e}")
@@ -101,6 +101,7 @@ if __name__ == "__main__":
     keep_alive()
     print("Bot is starting...")
     app.run()
+
 
 
 
