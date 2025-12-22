@@ -1,5 +1,0 @@
-pyrogram
-tgcrypto
-motor
-flask
-dnspython
