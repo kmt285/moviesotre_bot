@@ -138,7 +138,7 @@ def handle_user_request(message):
         
         try:
             # 1. Movie ပို့မယ် (Sent Message ကို ပြန်ဖမ်းမယ်)
-            sent_msg = bot.copy_message(chat_id=user_id, from_chat_id=CHANNEL_3_ID, message_id=real_msg_id)
+            sent_msg = bot.copy_message(chat_id=user_id, from_chat_id=CHANNEL_3_ID, message_id=real_msg_id, protect_content=True)
             
             # 2. "Finding..." စာကို ဖျက်မယ်
             bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
@@ -171,3 +171,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
