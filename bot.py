@@ -66,7 +66,7 @@ def handle_admin_forward(message):
         real_msg_id = message.forward_from_message_id
         
         if not real_msg_id:
-             bot.reply_to(message, "⚠️ Channel 3 ထဲကနေ Forward လုပ်ပေးမှ အဆင်ပြေပါမယ်။")
+             bot.reply_to(message, "⚠️Admin Forward လုပ်ပေးမှ အဆင်ပြေပါမယ်။")
              return
 
         data = {
@@ -77,7 +77,7 @@ def handle_admin_forward(message):
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
         bot.reply_to(message, f"✅ Saved!\nCustom ID: {custom_id}")
     else:
-        bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
+        bot.reply_to(message, "⚠️ ID နံပါတ် ရှာမတွေ့ပါ။")
 
 # --- User Section ---
 @bot.message_handler(func=lambda message: True)
@@ -85,14 +85,14 @@ def handle_user_request(message):
     # Start command ဆိုရင် ဘာမှဆက်မလုပ်ဘူး
     if message.text.startswith('/'):
         if message.text == '/start':
-             bot.reply_to(message, "Movie ID ရိုက်ထည့်ပါ (Channel Member ဖြစ်မှ ကြည့်ရပါမည်)")
+             bot.reply_to(message, "Movie ID ရိုက်ထည့်ပါ")
         return
 
     user_id = message.from_user.id
 
     if not is_subscribed(user_id):
         markup = types.InlineKeyboardMarkup()
-        btn = types.InlineKeyboardButton("Join Movie Channel", url=CHANNEL_2_LINK)
+        btn = types.InlineKeyboardButton("Member ဝင်ရန်", url=CHANNEL_2_LINK)
         markup.add(btn)
         bot.reply_to(message, "Channel ကို Join ပေးပါခင်ဗျာ။", reply_markup=markup)
         return
@@ -107,7 +107,7 @@ def handle_user_request(message):
             bot.copy_message(chat_id=user_id, from_chat_id=CHANNEL_3_ID, message_id=real_msg_id)
             bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
         except Exception as e:
-            bot.reply_to(message, "❌ Error sending file.")
+            bot.reply_to(message, "❌ Error sending file.Admin ကိုဆက်သွယ်ပါ")
             print(e)
     else:
         bot.reply_to(message, f"❌ ID '{custom_id}' မတွေ့ပါ။")
@@ -125,3 +125,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5) # 5 စက္ကန့်နားပြီး ပြန် run မယ်
+
