@@ -15,12 +15,17 @@ CHANNEL_2_ID = int(os.getenv('CHANNEL_2_ID'))
 CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID'))
 
+# --- LIMIT SETTINGS (ဒီမှာ ပြင်ပါ) ---
+COOLDOWN_SECONDS = 120  # တစ်ပုဒ်နဲ့ တစ်ပုဒ်ကြား စောင့်ရမည့်အချိန် (၂ မိနစ်)
+DAILY_LIMIT = 10        # တစ်ရက်ကို ကြည့်ခွင့်ပြုမည့် အကန့်အသတ် (၁၀ ပုဒ်)
+
 # --- Database Connection ---
 try:
     client = pymongo.MongoClient(MONGO_URL)
     db = client['movie_bot_db']
-    collection = db['movies']        # Movie ID သိမ်းတဲ့ နေရာ
-    delete_queue = db['delete_queue'] # ဖျက်ရမယ့် စာရင်းမှတ်တဲ့ နေရာ (New)
+    collection = db['movies']
+    delete_queue = db['delete_queue']
+    user_stats = db['user_stats'] 
     print("MongoDB Connected Successfully!")
 except Exception as e:
     print(f"MongoDB Connection Error: {e}")
@@ -34,48 +39,31 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "I am alive! Bot is running."
+    return "Bot is running with Daily Limit & Cooldown!"
 
 def run_http():
     app.run(host='0.0.0.0', port=8000)
 
-# --- Auto Delete Function (New Feature) ---
-# ၂၄ နာရီပြည့်တဲ့ စာတွေကို လိုက်ဖျက်မယ့် Function
 def auto_delete_worker():
-    print("Auto-delete worker started...")
     while True:
         try:
             current_time = time.time()
-            # အချိန်ပြည့်ပြီးသော Message များကို Database ထဲ ရှာမယ်
             expired_messages = delete_queue.find({"delete_time": {"$lte": current_time}})
             
             for msg in expired_messages:
-                chat_id = msg['chat_id']
-                message_id = msg['message_id']
-                
                 try:
-                    # Telegram မှာ လှမ်းဖျက်မယ်
-                    bot.delete_message(chat_id, message_id)
-                    print(f"Deleted message {message_id} for user {chat_id}")
-                except Exception as e:
-                    print(f"Failed to delete (User might have blocked bot): {e}")
-                
-                # ဖျက်ပြီးရင် Database ထဲကပါ ထုတ်လိုက်မယ်
+                    bot.delete_message(msg['chat_id'], msg['message_id'])
+                except:
+                    pass
                 delete_queue.delete_one({'_id': msg['_id']})
                 
-            time.sleep(60) # ၁ မိနစ်တစ်ခါ ထစစ်မယ်
-        except Exception as e:
-            print(f"Auto-delete loop error: {e}")
+            time.sleep(60)
+        except:
             time.sleep(5)
 
 def keep_alive():
-    # Web Server အတွက် Thread
-    t1 = Thread(target=run_http)
-    t1.start()
-    
-    # Auto Delete အတွက် Thread
-    t2 = Thread(target=auto_delete_worker)
-    t2.start()
+    Thread(target=run_http).start()
+    Thread(target=auto_delete_worker).start()
 # ==========================================
 
 # --- Check Member Function ---
@@ -117,58 +105,100 @@ def handle_admin_forward(message):
 def handle_user_request(message):
     if message.text.startswith('/'):
         if message.text == '/start':
-             bot.reply_to(message, "မင်္ဂလာပါ! Movieများကို download ပြုလုပ်ရန်နှင့် ကြည့်ရှုရန်အတွက် Movie ID နံပါတ်ရိုက်ထည့်ပါ")
+             bot.reply_to(message, f"ဇာတ်ကားများ download ပြုလုပ်ရန် Movie ID ရိုက်ထည့်ပါ")
         return
 
     user_id = message.from_user.id
 
     if not is_subscribed(user_id):
         markup = types.InlineKeyboardMarkup()
-        btn = types.InlineKeyboardButton("Member ဝင်ရန် ✅", url=CHANNEL_2_LINK)
+        btn = types.InlineKeyboardButton("Movie Store Member ဝင်ရန်", url=CHANNEL_2_LINK)
         markup.add(btn)
-        bot.reply_to(message, "⚠️ မိတ်ဆွေက Movie Store ကို Join မထားပါဘူး။\nအောက်က Link ကိုနှိပ်ပြီး Member အရင်ဝင်ပေးပါ။ ပြီးမှ ID ပြန်ရိုက်ပါ။", reply_markup=markup)
+        bot.reply_to(message, "⚠️ မိတ်ဆွေသည် Movie Channel ကို Join မထားရသေးပါ။\nအောက်က Link ကိုနှိပ်ပြီး Member အရင်ဝင်းပေးပါ။", reply_markup=markup)
         return
 
+    # --- LIMIT CHECK LOGIC ---
+    current_time = time.time()
+    user_data = user_stats.find_one({'_id': user_id})
+
+    # Default Data (User အသစ်ဆိုရင်)
+    daily_count = 0
+    reset_time = current_time + 86400 # နောက် ၂၄ နာရီနေမှ Reset မယ်
+    last_request = 0
+
+    if user_data:
+        reset_time = user_data.get('reset_time', current_time + 86400)
+        daily_count = user_data.get('daily_count', 0)
+        last_request = user_data.get('last_request_time', 0)
+
+        # 1. Check if 24 hours passed (Reset Limit)
+        if current_time > reset_time:
+            daily_count = 0
+            reset_time = current_time + 86400 # Reset time ကို အသစ်ပြန်သတ်မှတ်
+            # Database မှာ ချက်ချင်း Reset လုပ်ထားလိုက်မယ်
+            user_stats.update_one({'_id': user_id}, {'$set': {'daily_count': 0, 'reset_time': reset_time}})
+
+        # 2. Check Daily Limit (10 Files Max)
+        if daily_count >= DAILY_LIMIT:
+            bot.reply_to(message, f"🚫 ဒီနေ့အတွက် {DAILY_LIMIT} ပုဒ် ပြည့်သွားပါပြီ။\n(၂၄ နာရီပြည့်မှ ပြန်လည် Download ပြုလုပ်နိုင်ပါမည်)")
+            return
+
+        # 3. Check Cooldown (3 Minutes Wait)
+        time_diff = current_time - last_request
+        if time_diff < COOLDOWN_SECONDS:
+            wait_time = int(COOLDOWN_SECONDS - time_diff)
+            bot.reply_to(message, f"⏳ ခဏစောင့်ပါ။ နောက်ထပ် {wait_time} စက္ကန့်နေမှ နောက်တစ်ကား တောင်းလို့ရပါမယ်။")
+            return
+
+    # --- Find Movie ---
     custom_id = message.text.strip()
     movie_data = collection.find_one({'_id': custom_id})
     
     if movie_data:
         real_msg_id = movie_data['msg_id']
-        waiting = bot.reply_to(message, "🔍 Finding movie...")
+        waiting = bot.reply_to(message, f"🔍 Finding movie... ({daily_count + 1}/{DAILY_LIMIT})")
         
         try:
-            # 1. Movie ပို့မယ် (Sent Message ကို ပြန်ဖမ်းမယ်)
-            sent_msg = bot.copy_message(chat_id=user_id, from_chat_id=CHANNEL_3_ID, message_id=real_msg_id, protect_content=True)
-            
-            # 2. "Finding..." စာကို ဖျက်မယ်
+            # Movie ပို့မယ်
+            sent_msg = bot.copy_message(chat_id=user_id, from_chat_id=CHANNEL_3_ID, message_id=real_msg_id)
             bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
             
-            # 3. Auto Delete စာရင်းထဲ ထည့်မယ် (24 နာရီ = 86400 seconds)
-            delete_time = time.time() + 60 
+            # --- SUCCESS UPDATE STATS ---
+            # ပို့ပြီးမှ Count ကို တိုးမယ် (ID မှားရင် Count မတိုးဘူး)
+            user_stats.update_one(
+                {'_id': user_id}, 
+                {
+                    '$set': {
+                        'last_request_time': current_time, # Cooldown အတွက်
+                        'reset_time': reset_time           # Reset Time မပျောက်အောင်
+                    },
+                    '$inc': {'daily_count': 1}             # အရေအတွက် ၁ တိုးမယ်
+                }, 
+                upsert=True
+            )
             
+            # Auto Delete
+            delete_time = time.time() + 86400 
             delete_queue.insert_one({
                 'chat_id': user_id,
                 'message_id': sent_msg.message_id,
                 'delete_time': delete_time
             })
             
-            # User ကို အသိပေးစာ ပို့ချင်ရင် အောက်ကစာကြောင်းကို ဖွင့်ပါ
-            # bot.send_message(user_id, "⚠️ ဒီ Movie link သည် ၂၄ နာရီပြည့်ရင် အလိုအလျောက် ပျက်ပါမည်။")
-            
         except Exception as e:
-            bot.reply_to(message, "❌ Error sending file.")
+            bot.reply_to(message, "❌ File ပို့မရပါ (Database ပြတ်တောက်သွားခြင်း ဖြစ်နိုင်သည်)")
             print(e)
     else:
-        bot.reply_to(message, f"❌ ID '{custom_id}' ရှာမတွေ့ပါ။ ID မှန်မမှန်ပြန်လည်စစ်ဆေးပါ။")
+        # ID မှားရင် Count မတိုးဘဲ Error ပဲပြမယ်
+        bot.reply_to(message, f"❌ ID '{custom_id}' နှင့် Movie ရှာမတွေ့ပါ။ ID မှန်ကန်ကြောင်း ပြန်စစ်ပါ (သို့) Admin မှ မထည့်ရသေးခြင်း ဖြစ်နိုင်ပါသည်။")
 
 # --- Main Execution ---
 if __name__ == "__main__":
     keep_alive()
-    print("Bot started with Auto-Delete...")
+    print("Bot started with Daily Limit (10) & Cooldown (3m)...")
     while True:
         try:
             bot.infinity_polling(timeout=10, long_polling_timeout=5)
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
-
