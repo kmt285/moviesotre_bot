@@ -144,7 +144,7 @@ def handle_user_request(message):
             user_stats.update_one({'_id': user_id}, {'$set': {'daily_count': 0, 'reset_time': reset_time}})
 
         if daily_count >= DAILY_LIMIT:
-            bot.reply_to(message, f"🚫 ဒီနေ့အတွက် Limit ပြည့်သွားပါပြီ။\n(၂၄ နာရီပြည့်မှ ပြန်လည် Download ပြုလုပ်နိုင်ပါမည်) admin-@tec102024")
+            bot.reply_to(message, f"❌ ဒီနေ့အတွက် Download Limit ပြည့်သွားပါပြီ။\n(၂၄ နာရီပြည့်မှ ပြန်လည် Download ပြုလုပ်နိုင်မည်) admin-@tec102024")
             return
 
         time_diff = current_time - last_request
@@ -221,6 +221,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
