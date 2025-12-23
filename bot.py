@@ -79,9 +79,13 @@ def is_subscribed(user_id):
         return False
 
 # --- Admin Section (Save Movie) ---
-@bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
+@bot.message_handler(content_types=['video', 'document', 'photo', 'text'], func=lambda m: m.from_user.id == ADMIN_ID)
 def handle_admin_forward(message):
-    caption = message.caption if message.caption else ""
+    caption = message.caption if message.caption else message.text
+
+    if caption is None:
+        caption = ""
+
     match = re.search(r'(\d+)', caption)
     
     if match:
@@ -99,7 +103,7 @@ def handle_admin_forward(message):
             'file_name': caption 
         }
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
-        bot.reply_to(message, f"✅ Saved!\nCustom ID: {custom_id}")
+        bot.reply_to(message, f"✅ Saved!\nCustom ID: {custom_id}\nType: {message.content_type}")
     else:
         bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
 
@@ -221,6 +225,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
