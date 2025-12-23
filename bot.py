@@ -187,7 +187,7 @@ def handle_user_request(message):
                 upsert=True
             )
             
-            delete_time = time.time() + 86400 
+            delete_time = time.time() + 60 
             delete_queue.insert_one({
                 'chat_id': user_id,
                 'message_id': sent_msg.message_id,
@@ -221,6 +221,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
