@@ -19,7 +19,7 @@ CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID'))
 COOLDOWN_SECONDS = 60  # 1 မိနစ်
 DAILY_LIMIT = 10        # ၁၀ ပုဒ်
 # (New) Caption နောက်မှာ ထပ်ဖြည့်မည့်စာ
-CAPTION_SUFFIX = " >> admin @tec102024" 
+CAPTION_SUFFIX = " ဆက်သွယ်ရန် admin-@tec102024" 
 
 # --- Database Connection ---
 try:
@@ -114,7 +114,7 @@ def handle_user_request(message):
 
     if message.text.startswith('/'):
         if message.text == '/start':
-             bot.reply_to(message, f"ဇာတ်ကားများ download ပြုလုပ်ရန် Movie ID ရိုက်ထည့်ပါ")
+             bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
         return
 
     user_id = message.from_user.id
@@ -144,13 +144,13 @@ def handle_user_request(message):
             user_stats.update_one({'_id': user_id}, {'$set': {'daily_count': 0, 'reset_time': reset_time}})
 
         if daily_count >= DAILY_LIMIT:
-            bot.reply_to(message, f"🚫 ဒီနေ့အတွက် Quota ပြည့်သွားပါပြီ။\n(၂၄ နာရီပြည့်မှ ပြန်လည် Download ပြုလုပ်နိုင်ပါမည်)")
+            bot.reply_to(message, f"🚫 ဒီနေ့အတွက် Limit ပြည့်သွားပါပြီ။\n(၂၄ နာရီပြည့်မှ ပြန်လည် Download ပြုလုပ်နိုင်ပါမည်) admin-@tec102024")
             return
 
         time_diff = current_time - last_request
         if time_diff < COOLDOWN_SECONDS:
             wait_time = int(COOLDOWN_SECONDS - time_diff)
-            bot.reply_to(message, f"⏳ ခဏစောင့်ပါ။ {wait_time}s ကျန်ပါသေးသည်။")
+            bot.reply_to(message, f"⏳ ခဏစောင့်ပါ။ Waiting time - {wait_time}s")
             return
 
     # --- Find & Send Movie ---
@@ -209,7 +209,7 @@ def handle_user_request(message):
             collection.delete_one({'_id': custom_id})
             print(f"Deleted invalid movie ID {custom_id} from database.")
     else:
-        bot.reply_to(message, f"❌ ID '{custom_id}' နှင့် Movie ရှာမတွေ့ပါ။ ID မှန်ကန်ကြောင်း ပြန်စစ်ပါ (သို့) Admin မှ မထည့်ရသေးခြင်း ဖြစ်နိုင်ပါသည်။")
+        bot.reply_to(message, f"❌ ID '{custom_id}' နှင့် Movie ရှာမတွေ့ပါ။ ID မှန်ကန်ကြောင်း ပြန်စစ်ပါ (သို့) Admin မှ မထည့်ရသေးခြင်း ဖြစ်နိုင်ပါသည်။ admin-@tec102024")
 
 # --- Main Execution ---
 if __name__ == "__main__":
@@ -221,5 +221,6 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
