@@ -195,8 +195,19 @@ def handle_user_request(message):
             })
             
         except Exception as e:
-            bot.reply_to(message, "❌ File ပို့မရပါ (Database ပြတ်တောက်သွားခြင်း ဖြစ်နိုင်သည်)")
-            print(e)
+            # --- AUTO CLEAN LOGIC (ဒီအပိုင်းက အသစ်ပါ) ---
+            # 1. "Finding..." ဆိုတဲ့ စာကို အရင်ဖျက်မယ်
+            try:
+                bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
+            except:
+                pass
+
+            # 2. User ကို စာပြန်မယ်
+            bot.reply_to(message, "❌ တောင်းပန်ပါတယ်၊ ဒီဇာတ်ကားကို Channel ထဲမှ ဖျက်သိမ်းလိုက်ပါပြီ။")
+            
+            # 3. Database ထဲကနေပါ အဲ့ဒီ ID ကို အပြီးတိုင် ဖျက်မယ်
+            collection.delete_one({'_id': custom_id})
+            print(f"Deleted invalid movie ID {custom_id} from database.")
     else:
         bot.reply_to(message, f"❌ ID '{custom_id}' နှင့် Movie ရှာမတွေ့ပါ။ ID မှန်ကန်ကြောင်း ပြန်စစ်ပါ (သို့) Admin မှ မထည့်ရသေးခြင်း ဖြစ်နိုင်ပါသည်။")
 
@@ -210,4 +221,5 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
