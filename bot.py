@@ -137,7 +137,7 @@ def handle_user_request(message):
     # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ် (Chat ရှင်းအောင်)
     try:
         # (ပြင်ဆင်ချက်) message_id မပါရင် Error တက်တတ်လို့ ထည့်ပေးထားပါတယ်
-        bot.delete_message(message.chat.id, message.message_id) 
+        bot.delete_message(message.chat.id) #message.message_id
     except:
         pass
 
@@ -150,7 +150,7 @@ def handle_user_request(message):
             {'$set': {'active': True}}, 
             upsert=True
         )
-        bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
+        bot.reply_to(message, f"🔰🔰Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ🔰🔰")
         return
 
     if message.text.startswith('/'):
@@ -260,6 +260,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
