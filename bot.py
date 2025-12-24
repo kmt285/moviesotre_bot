@@ -35,41 +35,33 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
-# (1) BROADCAST SECTION (ထိပ်ဆုံးမှာ ထားရပါမယ်)
-# ==========================================
-@bot.message_handler(commands=['broadcast'], func=lambda m: m.from_user.id == ADMIN_ID)
-def handle_broadcast(message):
-    msg_text = message.text.replace('/broadcast', '').strip()
-    if not msg_text:
-        bot.reply_to(message, "⚠️ ပို့ချင်သော စာသားကို ရေးပေးပါ။\nဥပမာ: /broadcast မင်္ဂလာပါ")
-        return
-
-    # Thread အသစ်နဲ့ ပို့မယ် (Bot မလေးသွားအောင်)
-    Thread(target=start_broadcast_process, args=(message, msg_text)).start()
-
 def start_broadcast_process(message, text_to_send):
+    # Database ထဲမှ User အားလုံးကို ဆွဲထုတ်ခြင်း
     users = user_stats.find({})
     total_users = user_stats.count_documents({})
     sent_count = 0
     blocked_count = 0
     
+    # Admin ကို အသိပေးခြင်း
     status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ...\nTotal Users: {total_users}")
     
+    # User တစ်ယောက်ချင်းစီကို လိုက်ပို့ခြင်း
     for user in users:
         try:
             bot.send_message(user['_id'], text_to_send)
             sent_count += 1
-            time.sleep(0.05) 
-        except:
+            time.sleep(0.05)  # Server မလေးအောင် အနည်းငယ်စောင့်သည်
+        except Exception:
+            # Bot ကို Block ထားသူ (သို့) အကောင့်ပျက်သွားသူများ
             blocked_count += 1
             continue
             
+    # ပြီးဆုံးကြောင်း အသိပေးခြင်း
     bot.edit_message_text(
         chat_id=message.chat.id,
         message_id=status_msg.message_id,
         text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block/Fail: {blocked_count}"
     )
-
 # ==========================================
 # WEB SERVER & AUTO DELETE WORKER
 # ==========================================
@@ -144,7 +136,7 @@ def handle_admin_forward(message):
 def handle_user_request(message):
     # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ် (Chat ရှင်းအောင်)
     try:
-        bot.delete_message(message.chat.id) #message.message_id
+        bot.delete_message(message.chat.id, message.message_id) #
     except:
         pass
 
@@ -257,5 +249,6 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
