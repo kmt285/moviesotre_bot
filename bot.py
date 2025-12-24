@@ -150,11 +150,6 @@ def handle_user_request(message):
 
     if message.text.startswith('/'):
         if message.text == '/start':
-            user_stats.update_one(
-             {'_id': user_id}, 
-             {'$setOnInsert': {'daily_count': 0, 'join_date': time.time()}}, 
-             upsert=True
-         )
              bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
         return
 
@@ -262,4 +257,5 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
