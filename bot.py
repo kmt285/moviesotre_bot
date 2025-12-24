@@ -34,7 +34,7 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
-# (1) BROADCAST SECTION (ဒီအပိုင်း အသစ်ထည့်ထားသည်)
+# (1) BROADCAST SECTION (ထိပ်ဆုံးမှာ ထားရပါမယ်)
 # ==========================================
 @bot.message_handler(commands=['broadcast'], func=lambda m: m.from_user.id == ADMIN_ID)
 def handle_broadcast(message):
@@ -58,7 +58,7 @@ def start_broadcast_process(message, text_to_send):
         try:
             bot.send_message(user['_id'], text_to_send)
             sent_count += 1
-            time.sleep(0.05) # Telegram Limit မထိအောင် ချိန်ညှိခြင်း
+            time.sleep(0.05) 
         except:
             blocked_count += 1
             continue
@@ -70,13 +70,13 @@ def start_broadcast_process(message, text_to_send):
     )
 
 # ==========================================
-# WEB SERVER & AUTO DELETE WORKER
+# WEB SERVER & WORKERS
 # ==========================================
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is running with Broadcast Feature!"
+    return "Bot is running with Broadcast Fix!"
 
 def run_http():
     app.run(host='0.0.0.0', port=8000)
@@ -89,7 +89,7 @@ def auto_delete_worker():
             
             for msg in expired_messages:
                 try:
-                    bot.delete_message(msg['message_id']) #msg['chat_id']
+                    bot.delete_message(msg['chat_id'], msg['message_id'])
                 except:
                     pass
                 delete_queue.delete_one({'_id': msg['_id']})
@@ -139,15 +139,11 @@ def handle_admin_forward(message):
 # --- User Section (Get Movie) ---
 @bot.message_handler(func=lambda message: True)
 def handle_user_request(message):
-    # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ်
-    try:
-        bot.delete_message(message.chat.id, message.message_id)
-    except:
-        pass
-
+    
+    # [FIXED HERE] /start ဖြစ်ရင် မဖျက်ပါဘူး။
     if message.text.startswith('/'):
         if message.text == '/start':
-             # (Broadcast အတွက် User စာရင်းသွင်းခြင်း)
+             # Broadcast အတွက် User ကိုမှတ်မယ်
              user_stats.update_one(
                  {'_id': message.from_user.id}, 
                  {'$setOnInsert': {'daily_count': 0, 'join_date': time.time()}}, 
@@ -155,6 +151,12 @@ def handle_user_request(message):
              )
              bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
         return
+
+    # Command မဟုတ်မှ (ID ဖြစ်မှ) User စာကို ဖျက်မယ်
+    try:
+        bot.delete_message(message.chat.id, message.message_id)
+    except:
+        pass
 
     user_id = message.from_user.id
 
@@ -211,7 +213,10 @@ def handle_user_request(message):
                 caption=new_caption
             )
             
-            bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
+            try:
+                bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
+            except:
+                pass
             
             user_stats.update_one(
                 {'_id': user_id}, 
@@ -234,7 +239,6 @@ def handle_user_request(message):
                 bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
             except:
                 pass
-
             bot.reply_to(message, "❌ တောင်းပန်ပါတယ်၊ ဒီဇာတ်ကားကို Channel ထဲမှ ဖျက်သိမ်းလိုက်ပါပြီ။")
             collection.delete_one({'_id': custom_id})
     else:
@@ -250,5 +254,3 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
-
-
