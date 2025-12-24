@@ -15,9 +15,10 @@ CHANNEL_2_ID = int(os.getenv('CHANNEL_2_ID'))
 CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID'))
 
-# --- SETTINGS ---
+# --- SETTINGS (ဒီမှာ ပြင်ပါ) ---
 COOLDOWN_SECONDS = 60  # 1 မိနစ်
 DAILY_LIMIT = 10        # ၁၀ ပုဒ်
+# (New) Caption နောက်မှာ ထပ်ဖြည့်မည့်စာ
 CAPTION_SUFFIX = " $ ဆက်သွယ်ရန် $ admin @tec102024" 
 
 # --- Database Connection ---
@@ -70,13 +71,13 @@ def start_broadcast_process(message, text_to_send):
     )
 
 # ==========================================
-# WEB SERVER & WORKERS
+# WEB SERVER & AUTO DELETE WORKER
 # ==========================================
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is running with Broadcast Fix!"
+    return "Bot is running with Custom Caption!"
 
 def run_http():
     app.run(host='0.0.0.0', port=8000)
@@ -101,6 +102,7 @@ def auto_delete_worker():
 def keep_alive():
     Thread(target=run_http).start()
     Thread(target=auto_delete_worker).start()
+# ==========================================
 
 # --- Check Member Function ---
 def is_subscribed(user_id):
@@ -129,6 +131,7 @@ def handle_admin_forward(message):
         data = {
             '_id': custom_id,
             'msg_id': real_msg_id,
+            # (ပြင်ဆင်ချက်) Caption ကို အပြည့်သိမ်းပါမယ် ([:50] ကို ဖြုတ်လိုက်သည်)
             'file_name': caption 
         }
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
@@ -139,24 +142,21 @@ def handle_admin_forward(message):
 # --- User Section (Get Movie) ---
 @bot.message_handler(func=lambda message: True)
 def handle_user_request(message):
-    
-    # [FIXED HERE] /start ဖြစ်ရင် မဖျက်ပါဘူး။
-    if message.text.startswith('/'):
-        if message.text == '/start':
-             # Broadcast အတွက် User ကိုမှတ်မယ်
-             user_stats.update_one(
-                 {'_id': message.from_user.id}, 
-                 {'$setOnInsert': {'daily_count': 0, 'join_date': time.time()}}, 
-                 upsert=True
-             )
-             bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
-        return
-
-    # Command မဟုတ်မှ (ID ဖြစ်မှ) User စာကို ဖျက်မယ်
+    # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ် (Chat ရှင်းအောင်)
     try:
-        bot.delete_message(message.chat.id, message.message_id)
+        bot.delete_message(message.chat.id) #message.message_id
     except:
         pass
+
+    if message.text.startswith('/'):
+        if message.text == '/start':
+            user_stats.update_one(
+             {'_id': user_id}, 
+             {'$setOnInsert': {'daily_count': 0, 'join_date': time.time()}}, 
+             upsert=True
+         )
+             bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
+        return
 
     user_id = message.from_user.id
 
@@ -200,12 +200,16 @@ def handle_user_request(message):
     
     if movie_data:
         real_msg_id = movie_data['msg_id']
+        # Database ထဲက မူရင်း Caption ကို ယူမယ်
         original_caption = movie_data.get('file_name', '')
+        
+        # မူရင်း Caption + Admin Credit ပေါင်းထည့်မယ်
         new_caption = f"{original_caption}{CAPTION_SUFFIX}"
         
         waiting = bot.reply_to(message, f"🔍 Finding movie... ({daily_count + 1}/{DAILY_LIMIT})")
         
         try:
+            # (ပြင်ဆင်ချက်) caption=new_caption ကို ထည့်ပေးလိုက်သည်
             sent_msg = bot.copy_message(
                 chat_id=user_id, 
                 from_chat_id=CHANNEL_3_ID, 
@@ -213,10 +217,7 @@ def handle_user_request(message):
                 caption=new_caption
             )
             
-            try:
-                bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
-            except:
-                pass
+            bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
             
             user_stats.update_one(
                 {'_id': user_id}, 
@@ -235,12 +236,19 @@ def handle_user_request(message):
             })
             
         except Exception as e:
+            # --- AUTO CLEAN LOGIC (ဒီအပိုင်းက အသစ်ပါ) ---
+            # 1. "Finding..." ဆိုတဲ့ စာကို အရင်ဖျက်မယ်
             try:
                 bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
             except:
                 pass
+
+            # 2. User ကို စာပြန်မယ်
             bot.reply_to(message, "❌ တောင်းပန်ပါတယ်၊ ဒီဇာတ်ကားကို Channel ထဲမှ ဖျက်သိမ်းလိုက်ပါပြီ။")
+            
+            # 3. Database ထဲကနေပါ အဲ့ဒီ ID ကို အပြီးတိုင် ဖျက်မယ်
             collection.delete_one({'_id': custom_id})
+            print(f"Deleted invalid movie ID {custom_id} from database.")
     else:
         bot.reply_to(message, f"❌ ID '{custom_id}' နှင့် Movie ရှာမတွေ့ပါ။ ID မှန်ကန်ကြောင်း ပြန်စစ်ပါ (သို့) Admin မှ မထည့်ရသေးခြင်း ဖြစ်နိုင်ပါသည်။ $ admin $ @tec102024")
 
