@@ -89,7 +89,7 @@ def auto_delete_worker():
             
             for msg in expired_messages:
                 try:
-                    bot.delete_message(msg['chat_id'], msg['message_id'])
+                    bot.delete_message(msg['chat_id']) #msg['message_id']
                 except:
                     pass
                 delete_queue.delete_one({'_id': msg['_id']})
@@ -250,3 +250,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
