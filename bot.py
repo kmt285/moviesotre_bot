@@ -136,7 +136,7 @@ def handle_admin_forward(message):
 def handle_user_request(message):
     # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ် (Chat ရှင်းအောင်)
     try:
-        # bot.delete_message(message.chat.id, message.message_id)
+        bot.delete_message(message.chat.id) # message.message_id
     except:
         pass
 
@@ -249,6 +249,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
