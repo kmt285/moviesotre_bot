@@ -68,20 +68,7 @@ def keep_alive():
     Thread(target=auto_delete_worker).start()
 # ==========================================
 
-# --- Check Member Function ---
-def is_subscribed(user_id):
-    try:
-        status = bot.get_chat_member(CHANNEL_2_ID, user_id).status
-        if status in ['creator', 'administrator', 'member']:
-            return True
-        return False
-    except:
-        return False
-
-# --- Admin Section (Save Movie) ---
-@bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
-def handle_admin_forward(message):
-    # စာသားပါမပါ စစ်မယ်
+# စာသားပါမပါ စစ်မယ်
     msg_text = message.text.replace('/broadcast', '').strip()
     if not msg_text:
         bot.reply_to(message, "⚠️ ပို့ချင်သော စာသားကို ရေးပေးပါ။\nဥပမာ: /broadcast မင်္ဂလာပါ")
@@ -124,6 +111,20 @@ def start_broadcast_process(message, text_to_send):
         message_id=status_msg.message_id,
         text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block လုပ်ထားသူ: {blocked_count}\n⏱ ကြာချိန်: {duration}s"
     )
+
+# --- Check Member Function ---
+def is_subscribed(user_id):
+    try:
+        status = bot.get_chat_member(CHANNEL_2_ID, user_id).status
+        if status in ['creator', 'administrator', 'member']:
+            return True
+        return False
+    except:
+        return False
+
+# --- Admin Section (Save Movie) ---
+@bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
+def handle_admin_forward(message):
     caption = message.caption if message.caption else ""
     match = re.search(r'(\d+)', caption)
     
@@ -270,3 +271,4 @@ if __name__ == "__main__":
             print(f"Bot crashed: {e}")
 
             time.sleep(5)
+
