@@ -47,7 +47,7 @@ def handle_broadcast(message):
 
     # ID စစ်ဆေးခြင်း (String ပြောင်းပြီး စစ်တာ ပိုသေချာပါတယ်)
     if str(message.from_user.id) != str(ADMIN_ID):
-        bot.reply_to(message, f"⚠️ Access Denied!\nYour ID: {message.from_user.id}\nAdmin ID in Config: {ADMIN_ID}")
+        bot.reply_to(message, f"⚠️ Access Denied!\nYour ID: {message.from_user.id}")
         return
 
     msg_text = message.text.replace('/broadcast', '').strip()
@@ -286,6 +286,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
