@@ -81,6 +81,49 @@ def is_subscribed(user_id):
 # --- Admin Section (Save Movie) ---
 @bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
 def handle_admin_forward(message):
+    # စာသားပါမပါ စစ်မယ်
+    msg_text = message.text.replace('/broadcast', '').strip()
+    if not msg_text:
+        bot.reply_to(message, "⚠️ ပို့ချင်သော စာသားကို ရေးပေးပါ။\nဥပမာ: /broadcast မင်္ဂလာပါ")
+        return
+
+    # Thread အသစ်နဲ့ ပို့မယ် (Bot မလေးသွားအောင်)
+    Thread(target=start_broadcast_process, args=(message, msg_text)).start()
+
+def start_broadcast_process(message, text_to_send):
+    # Database ထဲက User ID အားလုံးကို ဆွဲထုတ်မယ်
+    # (user_stats collection ထဲမှာ user တိုင်းရဲ့ ID ရှိနေဖို့ လိုပါတယ်)
+    users = user_stats.find({})
+    
+    total_users = user_stats.count_documents({})
+    sent_count = 0
+    blocked_count = 0
+    
+    status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ...\nTotal Users: {total_users}")
+    
+    start_time = time.time()
+    
+    for user in users:
+        try:
+            user_id = user['_id']
+            bot.send_message(user_id, text_to_send)
+            sent_count += 1
+            
+            # Telegram Limit မထိအောင် နည်းနည်းစောင့်မယ် (1 စက္ကန့်မှာ 20 ယောက်လောက်ပို့မယ်)
+            time.sleep(0.05) 
+            
+        except Exception as e:
+            # User က Bot ကို Block ထားရင် (သို့) အကောင့်ပျက်သွားရင်
+            blocked_count += 1
+            continue
+            
+    # ပြီးဆုံးကြောင်း အသိပေးမယ်
+    duration = int(time.time() - start_time)
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=status_msg.message_id,
+        text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block လုပ်ထားသူ: {blocked_count}\n⏱ ကြာချိန်: {duration}s"
+    )
     caption = message.caption if message.caption else ""
     match = re.search(r'(\d+)', caption)
     
@@ -112,10 +155,15 @@ def handle_user_request(message):
     except:
         pass
 
-    if message.text.startswith('/'):
-        if message.text == '/start':
-             bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
-        return
+    if message.text == '/start':
+         # User ID ကို Database ထဲ အရင်မှတ်လိုက်မယ် (Broadcast အတွက်)
+         user_stats.update_one(
+             {'_id': user_id}, 
+             {'$setOnInsert': {'daily_count': 0, 'join_date': time.time()}}, 
+             upsert=True
+         )
+         bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
+         return
 
     user_id = message.from_user.id
 
@@ -220,4 +268,5 @@ if __name__ == "__main__":
             bot.infinity_polling(timeout=10, long_polling_timeout=5)
         except Exception as e:
             print(f"Bot crashed: {e}")
+
             time.sleep(5)
