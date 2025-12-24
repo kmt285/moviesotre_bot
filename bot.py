@@ -136,18 +136,29 @@ def handle_admin_forward(message):
 def handle_user_request(message):
     # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ် (Chat ရှင်းအောင်)
     try:
-        bot.delete_message(message.chat.id) # message.message_id
+        # (ပြင်ဆင်ချက်) message_id မပါရင် Error တက်တတ်လို့ ထည့်ပေးထားပါတယ်
+        bot.delete_message(message.chat.id, message.message_id) 
     except:
         pass
 
-    if message.text.startswith('/'):
-        if message.text == '/start':
-             bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
-        return
-
     user_id = message.from_user.id
 
+    # (ပြင်ဆင်ချက်) Start နှိပ်တာနဲ့ Database ထဲ အရင်သိမ်းပါမည်
+    if message.text == '/start':
+        user_stats.update_one(
+            {'_id': user_id}, 
+            {'$set': {'active': True}}, 
+            upsert=True
+        )
+        bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
+        return
+
+    if message.text.startswith('/'):
+        return
+
     if not is_subscribed(user_id):
+        # Member မဝင်ရသေးရင် Database ထဲထည့်မလား? (လိုချင်ရင် ဒီနေရာမှာလည်း update_one ထည့်လို့ရသည်)
+        # လက်ရှိကတော့ Member ဝင်ပြီးမှသာ Data သိမ်းမည့်ပုံစံဖြစ်နေသည်
         markup = types.InlineKeyboardMarkup()
         btn = types.InlineKeyboardButton("Movie Store Member ဝင်ရန်", url=CHANNEL_2_LINK)
         markup.add(btn)
@@ -249,6 +260,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
