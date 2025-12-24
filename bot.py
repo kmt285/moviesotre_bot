@@ -36,36 +36,35 @@ bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
 # ==========================================
-# (1) BROADCAST SECTION (Debug Fix)
+# ==========================================
+# (1) BROADCAST SECTION (Updated for Photo/Video/Text)
 # ==========================================
 @bot.message_handler(commands=['broadcast'])
 def handle_broadcast(message):
-    # Debug: ID တွေကို Console မှာ ထုတ်ကြည့်မယ် (Logs မှာ ပြန်ကြည့်ပါ)
-    print(f"Attempting Broadcast...")
-    print(f"User ID from Message: {message.from_user.id} (Type: {type(message.from_user.id)})")
-    print(f"Admin ID from Config: {ADMIN_ID} (Type: {type(ADMIN_ID)})")
-
-    # ID စစ်ဆေးခြင်း (String ပြောင်းပြီး စစ်တာ ပိုသေချာပါတယ်)
+    # Admin Verification
     if str(message.from_user.id) != str(ADMIN_ID):
-        bot.reply_to(message, f"⚠️ Access Denied!\nYour ID: {message.from_user.id}")
         return
 
-    msg_text = message.text.replace('/broadcast', '').strip()
-    if not msg_text:
-        bot.reply_to(message, "⚠️ ပို့ချင်သော စာသားကို ရေးပေးပါ။\nဥပမာ: /broadcast မင်္ဂလာပါ")
-        return
+    # (A) Reply လုပ်ပြီး ပို့နည်း (Photo, Video, File အကုန်ရသည်)
+    if message.reply_to_message:
+        # Reply လုပ်ထားတဲ့ Message ရဲ့ ID ကို ယူမယ်
+        msg_id_to_copy = message.reply_to_message.message_id
+        Thread(target=start_broadcast_process, args=(message, 'copy', msg_id_to_copy)).start()
+    
+    # (B) ရိုးရိုး စာသားသက်သက် ပို့နည်း (/broadcast hello)
+    else:
+        msg_text = message.text.replace('/broadcast', '').strip()
+        if not msg_text:
+            bot.reply_to(message, "⚠️ အသုံးပြုနည်း:\n1. ပို့ချင်သော ပုံ/ဗီဒီယိုကို Reply ထောက်ပြီး /broadcast ရေးပါ (သို့)\n2. /broadcast [စာသား] ရေးပါ။")
+            return
+        Thread(target=start_broadcast_process, args=(message, 'text', msg_text)).start()
 
-    # Thread စမယ်
-    Thread(target=start_broadcast_process, args=(message, msg_text)).start()
-#==========================================================
-def start_broadcast_process(message, text_to_send):
+def start_broadcast_process(message, mode, content):
     try:
-        # Database စစ်ဆေးခြင်း
         users = list(user_stats.find({}, {'_id': 1}))
         total_users = len(users)
         
-        # Admin ကို အကြောင်းပြန်ခြင်း (ဒီအဆင့်မရောက်ရင် Thread မ run လို့ပါ)
-        status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ...\nTotal Users: {total_users}")
+        status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ... (Users: {total_users})")
         
         sent_count = 0
         blocked_count = 0
@@ -73,10 +72,18 @@ def start_broadcast_process(message, text_to_send):
         for user in users:
             try:
                 user_id = user['_id']
-                bot.send_message(user_id, text_to_send)
+                
+                # Mode ပေါ်မူတည်ပြီး ပို့ပုံပြောင်းမယ်
+                if mode == 'copy':
+                    # Reply ထားတဲ့ Message ကို ထပ်တူကူးပြီး ပို့မယ် (Photo/Video/Caption အကုန်ပါမယ်)
+                    bot.copy_message(chat_id=user_id, from_chat_id=message.chat.id, message_id=content)
+                else:
+                    # ရိုးရိုးစာသားပို့မယ်
+                    bot.send_message(user_id, content)
+                
                 sent_count += 1
                 time.sleep(0.05) 
-            except Exception as e:
+            except Exception:
                 blocked_count += 1
                 continue
                 
@@ -87,7 +94,6 @@ def start_broadcast_process(message, text_to_send):
         )
     except Exception as e:
         print(f"Broadcast Error: {e}")
-        bot.send_message(message.chat.id, f"⚠️ Error in Thread: {e}")
 # ==========================================
 # WEB SERVER & AUTO DELETE WORKER
 # ==========================================
@@ -286,6 +292,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
