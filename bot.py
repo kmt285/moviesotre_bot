@@ -35,33 +35,59 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
+# ==========================================
+# (1) BROADCAST SECTION (Debug Fix)
+# ==========================================
+@bot.message_handler(commands=['broadcast'])
+def handle_broadcast(message):
+    # Debug: ID တွေကို Console မှာ ထုတ်ကြည့်မယ် (Logs မှာ ပြန်ကြည့်ပါ)
+    print(f"Attempting Broadcast...")
+    print(f"User ID from Message: {message.from_user.id} (Type: {type(message.from_user.id)})")
+    print(f"Admin ID from Config: {ADMIN_ID} (Type: {type(ADMIN_ID)})")
+
+    # ID စစ်ဆေးခြင်း (String ပြောင်းပြီး စစ်တာ ပိုသေချာပါတယ်)
+    if str(message.from_user.id) != str(ADMIN_ID):
+        bot.reply_to(message, f"⚠️ Access Denied!\nYour ID: {message.from_user.id}\nAdmin ID in Config: {ADMIN_ID}")
+        return
+
+    msg_text = message.text.replace('/broadcast', '').strip()
+    if not msg_text:
+        bot.reply_to(message, "⚠️ ပို့ချင်သော စာသားကို ရေးပေးပါ။\nဥပမာ: /broadcast မင်္ဂလာပါ")
+        return
+
+    # Thread စမယ်
+    Thread(target=start_broadcast_process, args=(message, msg_text)).start()
+#==========================================================
 def start_broadcast_process(message, text_to_send):
-    # Database ထဲမှ User အားလုံးကို ဆွဲထုတ်ခြင်း
-    users = user_stats.find({})
-    total_users = user_stats.count_documents({})
-    sent_count = 0
-    blocked_count = 0
-    
-    # Admin ကို အသိပေးခြင်း
-    status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ...\nTotal Users: {total_users}")
-    
-    # User တစ်ယောက်ချင်းစီကို လိုက်ပို့ခြင်း
-    for user in users:
-        try:
-            bot.send_message(user['_id'], text_to_send)
-            sent_count += 1
-            time.sleep(0.05)  # Server မလေးအောင် အနည်းငယ်စောင့်သည်
-        except Exception:
-            # Bot ကို Block ထားသူ (သို့) အကောင့်ပျက်သွားသူများ
-            blocked_count += 1
-            continue
-            
-    # ပြီးဆုံးကြောင်း အသိပေးခြင်း
-    bot.edit_message_text(
-        chat_id=message.chat.id,
-        message_id=status_msg.message_id,
-        text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block/Fail: {blocked_count}"
-    )
+    try:
+        # Database စစ်ဆေးခြင်း
+        users = list(user_stats.find({}, {'_id': 1}))
+        total_users = len(users)
+        
+        # Admin ကို အကြောင်းပြန်ခြင်း (ဒီအဆင့်မရောက်ရင် Thread မ run လို့ပါ)
+        status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ...\nTotal Users: {total_users}")
+        
+        sent_count = 0
+        blocked_count = 0
+        
+        for user in users:
+            try:
+                user_id = user['_id']
+                bot.send_message(user_id, text_to_send)
+                sent_count += 1
+                time.sleep(0.05) 
+            except Exception as e:
+                blocked_count += 1
+                continue
+                
+        bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=status_msg.message_id,
+            text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block/Fail: {blocked_count}"
+        )
+    except Exception as e:
+        print(f"Broadcast Error: {e}")
+        bot.send_message(message.chat.id, f"⚠️ Error in Thread: {e}")
 # ==========================================
 # WEB SERVER & AUTO DELETE WORKER
 # ==========================================
@@ -260,6 +286,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Bot crashed: {e}")
             time.sleep(5)
+
 
 
 
