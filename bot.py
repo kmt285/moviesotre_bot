@@ -15,10 +15,9 @@ CHANNEL_2_ID = int(os.getenv('CHANNEL_2_ID'))
 CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID'))
 
-# --- SETTINGS (ဒီမှာ ပြင်ပါ) ---
+# --- SETTINGS ---
 COOLDOWN_SECONDS = 60  # 1 မိနစ်
 DAILY_LIMIT = 10        # ၁၀ ပုဒ်
-# (New) Caption နောက်မှာ ထပ်ဖြည့်မည့်စာ
 CAPTION_SUFFIX = " $ ဆက်သွယ်ရန် $ admin @tec102024" 
 
 # --- Database Connection ---
@@ -35,13 +34,49 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
+# (1) BROADCAST SECTION (ဒီအပိုင်း အသစ်ထည့်ထားသည်)
+# ==========================================
+@bot.message_handler(commands=['broadcast'], func=lambda m: m.from_user.id == ADMIN_ID)
+def handle_broadcast(message):
+    msg_text = message.text.replace('/broadcast', '').strip()
+    if not msg_text:
+        bot.reply_to(message, "⚠️ ပို့ချင်သော စာသားကို ရေးပေးပါ။\nဥပမာ: /broadcast မင်္ဂလာပါ")
+        return
+
+    # Thread အသစ်နဲ့ ပို့မယ် (Bot မလေးသွားအောင်)
+    Thread(target=start_broadcast_process, args=(message, msg_text)).start()
+
+def start_broadcast_process(message, text_to_send):
+    users = user_stats.find({})
+    total_users = user_stats.count_documents({})
+    sent_count = 0
+    blocked_count = 0
+    
+    status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ...\nTotal Users: {total_users}")
+    
+    for user in users:
+        try:
+            bot.send_message(user['_id'], text_to_send)
+            sent_count += 1
+            time.sleep(0.05) # Telegram Limit မထိအောင် ချိန်ညှိခြင်း
+        except:
+            blocked_count += 1
+            continue
+            
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=status_msg.message_id,
+        text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block/Fail: {blocked_count}"
+    )
+
+# ==========================================
 # WEB SERVER & AUTO DELETE WORKER
 # ==========================================
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is running with Custom Caption!"
+    return "Bot is running with Broadcast Feature!"
 
 def run_http():
     app.run(host='0.0.0.0', port=8000)
@@ -66,51 +101,6 @@ def auto_delete_worker():
 def keep_alive():
     Thread(target=run_http).start()
     Thread(target=auto_delete_worker).start()
-# ==========================================
-
-# စာသားပါမပါ စစ်မယ်
-    msg_text = message.text.replace('/broadcast', '').strip()
-    if not msg_text:
-        bot.reply_to(message, "⚠️ ပို့ချင်သော စာသားကို ရေးပေးပါ။\nဥပမာ: /broadcast မင်္ဂလာပါ")
-        return
-
-    # Thread အသစ်နဲ့ ပို့မယ် (Bot မလေးသွားအောင်)
-    Thread(target=start_broadcast_process, args=(message, msg_text)).start()
-
-def start_broadcast_process(message, text_to_send):
-    # Database ထဲက User ID အားလုံးကို ဆွဲထုတ်မယ်
-    # (user_stats collection ထဲမှာ user တိုင်းရဲ့ ID ရှိနေဖို့ လိုပါတယ်)
-    users = user_stats.find({})
-    
-    total_users = user_stats.count_documents({})
-    sent_count = 0
-    blocked_count = 0
-    
-    status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ...\nTotal Users: {total_users}")
-    
-    start_time = time.time()
-    
-    for user in users:
-        try:
-            user_id = user['_id']
-            bot.send_message(user_id, text_to_send)
-            sent_count += 1
-            
-            # Telegram Limit မထိအောင် နည်းနည်းစောင့်မယ် (1 စက္ကန့်မှာ 20 ယောက်လောက်ပို့မယ်)
-            time.sleep(0.05) 
-            
-        except Exception as e:
-            # User က Bot ကို Block ထားရင် (သို့) အကောင့်ပျက်သွားရင်
-            blocked_count += 1
-            continue
-            
-    # ပြီးဆုံးကြောင်း အသိပေးမယ်
-    duration = int(time.time() - start_time)
-    bot.edit_message_text(
-        chat_id=message.chat.id,
-        message_id=status_msg.message_id,
-        text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block လုပ်ထားသူ: {blocked_count}\n⏱ ကြာချိန်: {duration}s"
-    )
 
 # --- Check Member Function ---
 def is_subscribed(user_id):
@@ -139,7 +129,6 @@ def handle_admin_forward(message):
         data = {
             '_id': custom_id,
             'msg_id': real_msg_id,
-            # (ပြင်ဆင်ချက်) Caption ကို အပြည့်သိမ်းပါမယ် ([:50] ကို ဖြုတ်လိုက်သည်)
             'file_name': caption 
         }
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
@@ -150,21 +139,22 @@ def handle_admin_forward(message):
 # --- User Section (Get Movie) ---
 @bot.message_handler(func=lambda message: True)
 def handle_user_request(message):
-    # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ် (Chat ရှင်းအောင်)
+    # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ်
     try:
-        bot.delete_message(message.chat.id) #message.message_id
+        bot.delete_message(message.chat.id, message.message_id)
     except:
         pass
 
-    if message.text == '/start':
-         # User ID ကို Database ထဲ အရင်မှတ်လိုက်မယ် (Broadcast အတွက်)
-         user_stats.update_one(
-             {'_id': user_id}, 
-             {'$setOnInsert': {'daily_count': 0, 'join_date': time.time()}}, 
-             upsert=True
-         )
-         bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
-         return
+    if message.text.startswith('/'):
+        if message.text == '/start':
+             # (Broadcast အတွက် User စာရင်းသွင်းခြင်း)
+             user_stats.update_one(
+                 {'_id': message.from_user.id}, 
+                 {'$setOnInsert': {'daily_count': 0, 'join_date': time.time()}}, 
+                 upsert=True
+             )
+             bot.reply_to(message, f"Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ")
+        return
 
     user_id = message.from_user.id
 
@@ -208,16 +198,12 @@ def handle_user_request(message):
     
     if movie_data:
         real_msg_id = movie_data['msg_id']
-        # Database ထဲက မူရင်း Caption ကို ယူမယ်
         original_caption = movie_data.get('file_name', '')
-        
-        # မူရင်း Caption + Admin Credit ပေါင်းထည့်မယ်
         new_caption = f"{original_caption}{CAPTION_SUFFIX}"
         
         waiting = bot.reply_to(message, f"🔍 Finding movie... ({daily_count + 1}/{DAILY_LIMIT})")
         
         try:
-            # (ပြင်ဆင်ချက်) caption=new_caption ကို ထည့်ပေးလိုက်သည်
             sent_msg = bot.copy_message(
                 chat_id=user_id, 
                 from_chat_id=CHANNEL_3_ID, 
@@ -244,19 +230,13 @@ def handle_user_request(message):
             })
             
         except Exception as e:
-            # --- AUTO CLEAN LOGIC (ဒီအပိုင်းက အသစ်ပါ) ---
-            # 1. "Finding..." ဆိုတဲ့ စာကို အရင်ဖျက်မယ်
             try:
                 bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
             except:
                 pass
 
-            # 2. User ကို စာပြန်မယ်
             bot.reply_to(message, "❌ တောင်းပန်ပါတယ်၊ ဒီဇာတ်ကားကို Channel ထဲမှ ဖျက်သိမ်းလိုက်ပါပြီ။")
-            
-            # 3. Database ထဲကနေပါ အဲ့ဒီ ID ကို အပြီးတိုင် ဖျက်မယ်
             collection.delete_one({'_id': custom_id})
-            print(f"Deleted invalid movie ID {custom_id} from database.")
     else:
         bot.reply_to(message, f"❌ ID '{custom_id}' နှင့် Movie ရှာမတွေ့ပါ။ ID မှန်ကန်ကြောင်း ပြန်စစ်ပါ (သို့) Admin မှ မထည့်ရသေးခြင်း ဖြစ်နိုင်ပါသည်။ $ admin $ @tec102024")
 
@@ -269,6 +249,4 @@ if __name__ == "__main__":
             bot.infinity_polling(timeout=10, long_polling_timeout=5)
         except Exception as e:
             print(f"Bot crashed: {e}")
-
             time.sleep(5)
-
