@@ -206,7 +206,7 @@ def handle_message(message):
     # START COMMAND
     if message.text == '/start':
         vip_status = is_vip(user_id)
-        status_text = "🌟 VIP Member" if vip_status else "👤 Free Member"
+        status_text = "🟢 VIP Member" if vip_status else "🔴 Free Member"
         user_name = message.from_user.first_name
         
         # Phone Number မရှိသေးရင် Button ပြမည်
@@ -218,7 +218,8 @@ def handle_message(message):
         
         txt = (f"👋 Hello {user_name}\n"
                f"🪪 Your ID `{user_id}`\n"
-               f"💎 Status: {status_text}\n"
+               f"💎 Status: {status_text}\n\n"
+               
                f"🎬 Movie ID ရိုက်ထည့်ပါ")
         
         bot.send_message(message.chat.id, txt, parse_mode="Markdown", reply_markup=markup)
@@ -254,7 +255,7 @@ def handle_message(message):
     if user_vip:
         if daily_count < VIP_SAVE_LIMIT:
             protect_content = False 
-            note = f"✅ VIP Mode: ({daily_count+1}/{VIP_SAVE_LIMIT})"
+            note = f"🟢 VIP Mode: ({daily_count+1}/{VIP_SAVE_LIMIT})"
         else:
             protect_content = True
             note = "⚠️ VIP: View Only Mode"
@@ -268,7 +269,7 @@ def handle_message(message):
             return
         protect_content = True 
         delete_delay = FREE_DELETE_TIME
-        note = f"👤 Free Mode: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
+        note = f"🔴 Free Mode: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
 
     # SEND
     wait_msg = bot.send_message(message.chat.id, "🔍 Finding...")
@@ -325,5 +326,6 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
