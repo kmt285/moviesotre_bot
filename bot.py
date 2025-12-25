@@ -18,16 +18,14 @@ CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID')) # Database Channel
 
 # --- SETTINGS ---
-# Free User Settings
 FREE_DAILY_LIMIT = 5
 FREE_DELETE_TIME = 86400     # 24 Hours
 FREE_COOLDOWN = 90           # 90 Seconds
 
-# VIP User Settings
 VIP_SAVE_LIMIT = 15          # 15 Files Save Limit
 VIP_DELETE_TIME = 86400      # 24 Hours
 
-CAPTION_SUFFIX = "\n\n$ admin @tec102024"
+CAPTION_SUFFIX = "\n\n$ ဆက်သွယ်ရန် $ admin @tec102024"
 
 # --- Database Connection ---
 try:
@@ -43,14 +41,11 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
-# (1) HELPER FUNCTIONS (STRUCTURED DB + AUTO UPDATE)
+# (1) HELPER FUNCTIONS (AUTO UPDATE)
 # ==========================================
 
 def get_or_register_user(message):
-    """
-    User Data ကို သိမ်းဆည်းခြင်းနှင့် Username ပြောင်းလဲမှုများကို 
-    Auto Update လုပ်ပေးသော Function
-    """
+    """User Data သိမ်းခြင်း + Username Auto Update လုပ်ခြင်း"""
     user_id = message.from_user.id
     username = message.from_user.username
     first_name = message.from_user.first_name
@@ -58,66 +53,51 @@ def get_or_register_user(message):
 
     user = user_stats.find_one({'_id': user_id})
     
-    # User မရှိသေးလျှင် အသစ်ဆောက်မည် (Register New User)
+    # User အသစ်ဆိုရင် Create လုပ်မည်
     if not user:
         new_user = {
             '_id': user_id,
-            'username': username,          # Username သိမ်းမည်
-            'first_name': first_name,      # First Name သိမ်းမည်
-            'last_name': last_name,        # Last Name သိမ်းမည်
-            'phone_number': None,          # Phone (Not available auto)
-            'email': None,                 # Email (Not available auto)
-            'status': 'free',              # free / vip
-            'vip_info': {
-                'expiry': None,
-                'start_date': None
-            },
+            'username': username,
+            'first_name': first_name,
+            'last_name': last_name,
+            'phone_number': None,          # Button နှိပ်မှ ဝင်လာမည်
+            'status': 'free',
+            'vip_info': {'expiry': None, 'start_date': None},
             'usage': {
-                'daily_count': 0,
-                'reset_time': time.time() + 86400,
+                'daily_count': 0, 
+                'reset_time': time.time() + 86400, 
                 'last_request_time': 0
             }
         }
         user_stats.insert_one(new_user)
         return new_user
     
-    # User ရှိပြီးသားဆိုရင် Username/Name ပြောင်းမပြောင်း စစ်မည် (Auto Update)
+    # User အဟောင်းဆိုရင် Info Update လုပ်မည်
     else:
         update_data = {}
-        if user.get('username') != username:
-            update_data['username'] = username
-        if user.get('first_name') != first_name:
-            update_data['first_name'] = first_name
-        if user.get('last_name') != last_name:
-            update_data['last_name'] = last_name
+        if user.get('username') != username: update_data['username'] = username
+        if user.get('first_name') != first_name: update_data['first_name'] = first_name
+        if user.get('last_name') != last_name: update_data['last_name'] = last_name
             
-        # ပြောင်းလဲမှုရှိမှ Database ကို Update လုပ်မည် (Database အလုပ်သက်သာအောင်)
         if update_data:
             user_stats.update_one({'_id': user_id}, {'$set': update_data})
-            # Update လုပ်လိုက်ကြောင်း Return ပြန်ပေးရန်မလို, User object အဟောင်းကိုပဲ သုံးမယ်
             
     return user
 
 def is_vip(user_id):
-    """VIP ဖြစ်မဖြစ်နှင့် သက်တမ်းစစ်ဆေးခြင်း"""
+    """VIP စစ်ဆေးခြင်း"""
     user = user_stats.find_one({'_id': user_id})
-    
     if user and user.get('status') == 'vip':
         expiry = user.get('vip_info', {}).get('expiry', 0)
-        # သက်တမ်းကုန်မကုန် စစ်ခြင်း
         if expiry and expiry > time.time():
             return True
         else:
-            # သက်တမ်းကုန်ရင် Free ပြောင်းမည်
-            user_stats.update_one(
-                {'_id': user_id},
-                {'$set': {'status': 'free', 'vip_info.expiry': None}}
-            )
+            user_stats.update_one({'_id': user_id}, {'$set': {'status': 'free', 'vip_info.expiry': None}})
             return False
     return False
 
 def check_subscription(user_id):
-    """Channel 2 Member ဝင်ထားခြင်း ရှိမရှိ စစ်ဆေးခြင်း"""
+    """Member Join ထားမထား စစ်ခြင်း"""
     try:
         member = bot.get_chat_member(CHANNEL_2_ID, user_id)
         if member.status in ['creator', 'administrator', 'member']:
@@ -141,15 +121,7 @@ def add_vip(message):
         
         user_stats.update_one(
             {'_id': uid}, 
-            {
-                '$set': {
-                    'status': 'vip',
-                    'vip_info': {
-                        'expiry': expiry,
-                        'start_date': time.time()
-                    }
-                }
-            }, 
+            {'$set': {'status': 'vip', 'vip_info': {'expiry': expiry, 'start_date': time.time()}}}, 
             upsert=True
         )
         bot.reply_to(message, f"✅ User `{uid}` is now VIP for {days} days.", parse_mode="Markdown")
@@ -160,13 +132,8 @@ def add_vip(message):
 def delete_vip(message):
     if message.from_user.id != ADMIN_ID: return
     try:
-        parts = message.text.split()
-        uid = int(parts[1])
-        
-        user_stats.update_one(
-            {'_id': uid}, 
-            {'$set': {'status': 'free', 'vip_info': {}}}
-        )
+        uid = int(message.text.split()[1])
+        user_stats.update_one({'_id': uid}, {'$set': {'status': 'free', 'vip_info': {}}})
         bot.reply_to(message, f"🗑️ User `{uid}` is now Free User.", parse_mode="Markdown")
     except:
         bot.reply_to(message, "⚠️ Usage: `/delvip [UserID]`")
@@ -203,44 +170,58 @@ def save_movie(message):
     
     if match:
         custom_id = match.group(1)
-        data = {
-            '_id': custom_id,
-            'msg_id': message.forward_from_message_id,
-            'file_name': caption
-        }
+        data = {'_id': custom_id, 'msg_id': message.forward_from_message_id, 'file_name': caption}
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
         bot.reply_to(message, f"✅ Saved! ID: `{custom_id}`", parse_mode="Markdown")
     else:
         bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
 
 # ==========================================
-# (4) MAIN LOGIC (UPDATED WITH DATA CAPTURE)
+# (4) PHONE NUMBER HANDLER (NEW FEATURE)
+# ==========================================
+@bot.message_handler(content_types=['contact'])
+def handle_contact(message):
+    if message.contact:
+        user_id = message.from_user.id
+        phone_number = message.contact.phone_number
+        
+        # Database ထဲသို့ Phone Number သိမ်းခြင်း
+        user_stats.update_one(
+            {'_id': user_id}, 
+            {'$set': {'phone_number': phone_number}}
+        )
+        
+        # Button ကို ပြန်ဖျက်ပြီး Welcome စာ ပြန်ပို့
+        remove_kb = types.ReplyKeyboardRemove()
+        bot.send_message(message.chat.id, "✅ Phone Number Registered!", reply_markup=remove_kb)
+
+# ==========================================
+# (5) MAIN LOGIC & START
 # ==========================================
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
-    
-    # 1. Update/Register User Data (Username auto update logic is here)
-    user_data = get_or_register_user(message)
-
-    # message ဖျက်ချင်ရင် အောက်က # ကိုဖြုတ်ပါ
-    # try: bot.delete_message(message.chat.id, message.message_id)
-    # except: pass
+    user_data = get_or_register_user(message) # Register & Update Info
 
     # START COMMAND
     if message.text == '/start':
         vip_status = is_vip(user_id)
         status_text = "🌟 VIP Member" if vip_status else "👤 Free Member"
-        
-        # Displaying name to show we captured it
         user_name = message.from_user.first_name
+        
+        # Phone Number မရှိသေးရင် Button ပြမည်
+        markup = types.ReplyKeyboardRemove() # Default is remove
+        if user_data.get('phone_number') is None:
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+            btn = types.KeyboardButton("Add Contact!", request_contact=True)
+            markup.add(btn)
         
         txt = (f"🔰 **Movie Downloader** 🔰\n"
                f"👋 Hello {user_name}\n"
                f"🆔 `{user_id}`\n💎 Status: {status_text}\n\n"
-               f"Join VIP for Unlimited!\n\n"
                f"🎬 Movie ID ရိုက်ထည့်ပါ:")
-        bot.send_message(message.chat.id, txt, parse_mode="Markdown")
+        
+        bot.send_message(message.chat.id, txt, parse_mode="Markdown", reply_markup=markup)
         return
 
     # SUBSCRIPTION CHECK
@@ -250,113 +231,86 @@ def handle_message(message):
         bot.send_message(message.chat.id, "⚠️ Channel Join ထားမှ သုံးလို့ရပါမည်။", reply_markup=markup)
         return
 
-    # GET MOVIE DATA
+    # GET MOVIE
     movie_id = message.text.strip()
     movie = collection.find_one({'_id': movie_id})
     if not movie:
         bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။")
         return
 
-    # --- LOGIC CALCULATION ---
+    # LOGIC
     user_vip = is_vip(user_id)
     current_time = time.time()
-    
-    # Use retrieved data
     usage = user_data.get('usage', {})
-    
     daily_count = usage.get('daily_count', 0)
     reset_time = usage.get('reset_time', current_time + 86400)
     last_req = usage.get('last_request_time', 0)
 
-    # Daily Reset Logic
     if current_time > reset_time:
         daily_count = 0
         reset_time = current_time + 86400
-        user_stats.update_one(
-            {'_id': user_id}, 
-            {'$set': {'usage.daily_count': 0, 'usage.reset_time': reset_time}}
-        )
+        user_stats.update_one({'_id': user_id}, {'$set': {'usage.daily_count': 0, 'usage.reset_time': reset_time}})
 
-    # --- DECISION MAKING ---
     if user_vip:
-        # === VIP LOGIC ===
-        delete_delay = VIP_DELETE_TIME
-        
         if daily_count < VIP_SAVE_LIMIT:
             protect_content = False 
-            note = f"✅ VIP Mode: ({daily_count+1}/{VIP_SAVE_LIMIT})"
+            note = f"✅ VIP: Can Save ({daily_count+1}/{VIP_SAVE_LIMIT})"
         else:
             protect_content = True
-            note = "⚠️ VIP Note: Save Limit Reached. (View Only Mode)"
-            
+            note = "⚠️ VIP: View Only Mode"
+        delete_delay = VIP_DELETE_TIME
     else:
-        # === FREE LOGIC ===
         if daily_count >= FREE_DAILY_LIMIT:
-            bot.send_message(message.chat.id, "❌ Daily Limit ပြည့်သွားပါပြီ။ Unlimited ရရန် VIP ဝယ်ပါ။")
+            bot.send_message(message.chat.id, "❌ Daily Limit Reached.")
             return
-        
         if (current_time - last_req) < FREE_COOLDOWN:
-            wait = int(FREE_COOLDOWN - (current_time - last_req))
-            bot.send_message(message.chat.id, f"⏳ ခဏစောင့်ပါ... {wait}s")
+            bot.send_message(message.chat.id, f"⏳ Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
             return
-
         protect_content = True 
         delete_delay = FREE_DELETE_TIME
-        note = f"👤 Free Mode: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
+        note = f"👤 Free: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
 
-    # --- SENDING ---
+    # SEND
     wait_msg = bot.send_message(message.chat.id, "🔍 Finding...")
     try:
-        final_caption = f"{movie.get('file_name', '')}{CAPTION_SUFFIX}"
-        
         sent_msg = bot.copy_message(
             chat_id=user_id,
             from_chat_id=CHANNEL_3_ID,
             message_id=movie['msg_id'],
-            caption=final_caption,
+            caption=f"{movie.get('file_name', '')}{CAPTION_SUFFIX}",
             protect_content=protect_content
         )
-        
         bot.delete_message(message.chat.id, wait_msg.message_id)
-        
         bot.send_message(message.chat.id, f"{note}\n🗑️ Auto-delete in {int(delete_delay/3600)} hours.")
 
-        # Update Count
         user_stats.update_one(
             {'_id': user_id},
             {
                 '$inc': {'usage.daily_count': 1}, 
-                '$set': {
-                    'usage.last_request_time': current_time, 
-                    'usage.reset_time': reset_time
-                }
+                '$set': {'usage.last_request_time': current_time, 'usage.reset_time': reset_time}
             }
         )
-
         delete_queue.insert_one({
             'chat_id': user_id,
             'message_id': sent_msg.message_id,
             'delete_time': current_time + delete_delay
         })
-
     except Exception as e:
         bot.delete_message(message.chat.id, wait_msg.message_id)
         bot.send_message(message.chat.id, "❌ Error sending movie.")
-        print(f"Error: {e}")
 
 # ==========================================
-# (5) BACKGROUND TASKS
+# (6) SERVER
 # ==========================================
 app = Flask('')
 @app.route('/')
-def home(): return "Bot Running with User Info Capture"
+def home(): return "Bot Running"
 def run_http(): app.run(host='0.0.0.0', port=8000)
 def auto_delete_worker():
     while True:
         try:
             now = time.time()
-            expired = delete_queue.find({"delete_time": {"$lte": now}})
-            for msg in expired:
+            for msg in delete_queue.find({"delete_time": {"$lte": now}}):
                 try: bot.delete_message(msg['chat_id'], msg['message_id'])
                 except: pass
                 delete_queue.delete_one({'_id': msg['_id']})
