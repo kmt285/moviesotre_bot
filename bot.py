@@ -235,7 +235,7 @@ def handle_message(message):
     movie_id = message.text.strip()
     movie = collection.find_one({'_id': movie_id})
     if not movie:
-        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။ \n Database တွင် မရှိနေခြင်းဖြစ်နိုင်သည်။\n\n admin 🌵 @tec102024")
+        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။\n\n admin 🌵 @tec102024")
         return
 
     # LOGIC
@@ -261,7 +261,7 @@ def handle_message(message):
         delete_delay = VIP_DELETE_TIME
     else:
         if daily_count >= FREE_DAILY_LIMIT:
-            bot.send_message(message.chat.id, "❌ Daily Limit Reached.\n\nဒီနေ့အတွက် Request Limit ပြည့်သွားပါပြီ။\n\n(၂၄ နာရီပြည့်မှ ပြန်လည် Request ပြုလုပ်နိုင်မည်)\n\n Join VIP for Unlimited and Download\n\n admin 🌵 @tec102024")
+            bot.send_message(message.chat.id, "❌ Daily Limit Reached.\n\nဒီနေ့အတွက် Request Limit ပြည့်သွားပါပြီ။\n\n(၂၄ နာရီပြည့်မှ ပြန်လည် Request ပြုလုပ်နိုင်မည်။)\n\n Join VIP 🏆 for Unlimited \n\n admin 🌵 @tec102024")
             return
         if (current_time - last_req) < FREE_COOLDOWN:
             bot.send_message(message.chat.id, f"⏳ Free Mode Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
@@ -325,6 +325,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
