@@ -235,7 +235,7 @@ def handle_message(message):
     movie_id = message.text.strip()
     movie = collection.find_one({'_id': movie_id})
     if not movie:
-        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။ \n မှန်ကန်ကြောင်းပြန်စစ်ဆေးပါ (သို့) Database တွင်မရှိနေခြင်းဖြစ်နိုင်သည်။\n\n admin @tec102024")
+        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။ \n မှန်ကန်ကြောင်းပြန်စစ်ဆေးပါ (သို့) Database တွင်မရှိနေခြင်းဖြစ်နိုင်သည်။\n\n admin >> @tec102024")
         return
 
     # LOGIC
@@ -261,7 +261,7 @@ def handle_message(message):
         delete_delay = VIP_DELETE_TIME
     else:
         if daily_count >= FREE_DAILY_LIMIT:
-            bot.send_message(message.chat.id, "❌ Daily Limit Reached. Unlimited ကြည့်ရှူနိုင်ရန် VIP ဝယ်ယူပါ။")
+            bot.send_message(message.chat.id, "❌ Daily Limit Reached. Unlimited ကြည့်ရှူနိုင်ရန် VIP ဝယ်ယူပါ။\n\n admin >> @tec102024")
             return
         if (current_time - last_req) < FREE_COOLDOWN:
             bot.send_message(message.chat.id, f"⏳ Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
@@ -281,7 +281,7 @@ def handle_message(message):
             protect_content=protect_content
         )
         bot.delete_message(message.chat.id, wait_msg.message_id)
-        bot.send_message(message.chat.id,f"{note}\n🗑️ Auto-delete in {int(delete_delay/3600)} hours.") 
+       # bot.send_message(message.chat.id,f"{note}\n🗑️ Auto-delete in {int(delete_delay/3600)} hours.") 
 
         user_stats.update_one(
             {'_id': user_id},
@@ -294,7 +294,7 @@ def handle_message(message):
             'chat_id': user_id,
             'message_id': sent_msg.message_id,
             'delete_time': current_time + delete_delay
-        F})
+        })
     except Exception as e:
         bot.delete_message(message.chat.id, wait_msg.message_id)
         bot.send_message(message.chat.id, "❌ Error sending movie.")
@@ -325,6 +325,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
