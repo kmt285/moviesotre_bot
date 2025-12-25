@@ -41,7 +41,7 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
-# (1) HELPER FUNCTIONS
+# (1) HELPER FUNCTIONS (AUTO UPDATE)
 # ==========================================
 
 def get_or_register_user(message):
@@ -53,14 +53,14 @@ def get_or_register_user(message):
 
     user = user_stats.find_one({'_id': user_id})
     
+    # User အသစ်ဆိုရင် Create လုပ်မည်
     if not user:
         new_user = {
             '_id': user_id,
             'username': username,
             'first_name': first_name,
             'last_name': last_name,
-            'phone_number': None,
-            'email': None,                 # Email Slot
+            'phone_number': None,          # Button နှိပ်မှ ဝင်လာမည်
             'status': 'free',
             'vip_info': {'expiry': None, 'start_date': None},
             'usage': {
@@ -71,6 +71,8 @@ def get_or_register_user(message):
         }
         user_stats.insert_one(new_user)
         return new_user
+    
+    # User အဟောင်းဆိုရင် Info Update လုပ်မည်
     else:
         update_data = {}
         if user.get('username') != username: update_data['username'] = username
@@ -175,56 +177,23 @@ def save_movie(message):
         bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
 
 # ==========================================
-# (4) REGISTRATION FLOW (PHONE -> EMAIL)
+# (4) PHONE NUMBER HANDLER (NEW FEATURE)
 # ==========================================
-
-# Step 1: Handle Phone Number
 @bot.message_handler(content_types=['contact'])
 def handle_contact(message):
     if message.contact:
         user_id = message.from_user.id
         phone_number = message.contact.phone_number
         
-        # Save Phone
-        user_stats.update_one({'_id': user_id}, {'$set': {'phone_number': phone_number}})
+        # Database ထဲသို့ Phone Number သိမ်းခြင်း
+        user_stats.update_one(
+            {'_id': user_id}, 
+            {'$set': {'phone_number': phone_number}}
+        )
         
-        # Ask for Email (Next Step)
+        # Button ကို ပြန်ဖျက်ပြီး Welcome စာ ပြန်ပို့
         remove_kb = types.ReplyKeyboardRemove()
-        msg = bot.send_message(message.chat.id, "✅ Phone received.\n\n✉️ **ကျေးဇူးပြု၍ Email လိပ်စာ ရိုက်ထည့်ပေးပါ:**\n(ဥပမာ - example@gmail.com)", parse_mode="Markdown", reply_markup=remove_kb)
-        
-        # Register Next Step Handler (Wait for text input)
-        bot.register_next_step_handler(msg, handle_email_step)
-
-# Step 2: Handle Email Input
-def handle_email_step(message):
-    user_id = message.from_user.id
-    email_text = message.text
-    
-    # Simple Validation (Check if contains @)
-    if not email_text or "@" not in email_text:
-        msg = bot.send_message(message.chat.id, "⚠️ Email ပုံစံ မှားယွင်းနေပါသည်။ ပြန်လည်ရိုက်ထည့်ပါ:")
-        bot.register_next_step_handler(msg, handle_email_step)
-        return
-
-    # Save Email
-    user_stats.update_one({'_id': user_id}, {'$set': {'email': email_text}})
-    
-    # Registration Complete -> Show Menu
-    show_main_menu(message)
-
-def show_main_menu(message):
-    user_id = message.from_user.id
-    vip_status = is_vip(user_id)
-    status_text = "🌟 VIP Member" if vip_status else "👤 Free Member"
-    user_name = message.from_user.first_name
-    
-    txt = (f"🔰 **Movie Downloader** 🔰\n"
-           f"👋 Hello {user_name}\n"
-           f"🆔 `{user_id}`\n💎 Status: {status_text}\n\n"
-           f"✅ Registration Complete!\n"
-           f"🎬 Movie ID ရိုက်ထည့်ပါ:")
-    
-    bot.send_message(message.chat.id, txt, parse_mode="Markdown")
+        bot.send_message(message.chat.id, "✅ Phone Number Registered!", reply_markup=remove_kb)
 
 # ==========================================
 # (5) MAIN LOGIC & START
@@ -232,26 +201,27 @@ def show_main_menu(message):
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
-    user_data = get_or_register_user(message) 
+    user_data = get_or_register_user(message) # Register & Update Info
 
     # START COMMAND
     if message.text == '/start':
-        # Check Phone First
+        vip_status = is_vip(user_id)
+        status_text = "🌟 VIP Member" if vip_status else "👤 Free Member"
+        user_name = message.from_user.first_name
+        
+        # Phone Number မရှိသေးရင် Button ပြမည်
+        markup = types.ReplyKeyboardRemove() # Default is remove
         if user_data.get('phone_number') is None:
             markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
             btn = types.KeyboardButton("📱 Register Phone Number", request_contact=True)
             markup.add(btn)
-            bot.send_message(message.chat.id, "👋 Welcome! Bot သုံးရန် Phone Number အရင်ပေးပို့ရပါမည်။", reply_markup=markup)
-            return
         
-        # Check Email Second
-        if user_data.get('email') is None:
-            msg = bot.send_message(message.chat.id, "✉️ **ကျေးဇူးပြု၍ Email လိပ်စာ ရိုက်ထည့်ပေးပါ:**\n(ဥပမာ - example@gmail.com)", parse_mode="Markdown")
-            bot.register_next_step_handler(msg, handle_email_step)
-            return
-
-        # All Good -> Show Menu
-        show_main_menu(message)
+        txt = (f"🔰 **Movie Downloader** 🔰\n"
+               f"👋 Hello {user_name}\n"
+               f"🆔 `{user_id}`\n💎 Status: {status_text}\n\n"
+               f"🎬 Movie ID ရိုက်ထည့်ပါ:")
+        
+        bot.send_message(message.chat.id, txt, parse_mode="Markdown", reply_markup=markup)
         return
 
     # SUBSCRIPTION CHECK
@@ -259,11 +229,6 @@ def handle_message(message):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Join Channel First", url=CHANNEL_2_LINK))
         bot.send_message(message.chat.id, "⚠️ Channel Join ထားမှ သုံးလို့ရပါမည်။", reply_markup=markup)
-        return
-
-    # CHECK REGISTRATION AGAIN (In case they bypass start)
-    if user_data.get('phone_number') is None or user_data.get('email') is None:
-        bot.send_message(message.chat.id, "⚠️ ကျေးဇူးပြု၍ /start နှိပ်ပြီး Register အရင်လုပ်ပါ။")
         return
 
     # GET MOVIE
