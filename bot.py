@@ -6,19 +6,29 @@ import re
 from flask import Flask
 from threading import Thread
 import time
+from datetime import datetime, timedelta
 
 # --- Configuration ---
 API_TOKEN = os.getenv('BOT_TOKEN')
 MONGO_URL = os.getenv('MONGO_URL')
 ADMIN_ID = int(os.getenv('ADMIN_ID'))
+
+# Channel 2 = Public Poster Channel (User မဖြစ်မနေ Join ရမည်)
 CHANNEL_2_ID = int(os.getenv('CHANNEL_2_ID'))
 CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
+
+# Channel 3 = Database Channel (Video အစစ်တင်မည့်နေရာ)
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID'))
 
-# --- SETTINGS (ဒီမှာ ပြင်ပါ) ---
-COOLDOWN_SECONDS = 60  # 1 မိနစ်
-DAILY_LIMIT = 10        # ၁၀ ပုဒ်
-# (New) Caption နောက်မှာ ထပ်ဖြည့်မည့်စာ
+# --- SETTINGS ---
+# Free User အတွက် Limit
+COOLDOWN_SECONDS = 60  # ၁ မိနစ်
+DAILY_LIMIT = 5        # တစ်ရက် ၅ ပုဒ်
+
+# Delete Times (စက္ကန့်ဖြင့်)
+FREE_DELETE_TIME = 5 * 3600   # ၅ နာရီ (18000 seconds)
+VIP_DELETE_TIME = 24 * 3600   # ၂၄ နာရီ (86400 seconds)
+
 CAPTION_SUFFIX = " $ ဆက်သွယ်ရန် $ admin @tec102024" 
 
 # --- Database Connection ---
@@ -35,90 +45,76 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
-# ==========================================
-# ==========================================
-# (1) BROADCAST SECTION (Updated for Photo/Video/Text)
+# (1) BROADCAST SECTION & VIP COMMANDS
 # ==========================================
 @bot.message_handler(commands=['broadcast'])
 def handle_broadcast(message):
-    # Admin Verification
     if str(message.from_user.id) != str(ADMIN_ID):
         return
 
-    # (A) Reply လုပ်ပြီး ပို့နည်း (Photo, Video, File အကုန်ရသည်)
     if message.reply_to_message:
-        # Reply လုပ်ထားတဲ့ Message ရဲ့ ID ကို ယူမယ်
         msg_id_to_copy = message.reply_to_message.message_id
         Thread(target=start_broadcast_process, args=(message, 'copy', msg_id_to_copy)).start()
-    
-    # (B) ရိုးရိုး စာသားသက်သက် ပို့နည်း (/broadcast hello)
     else:
         msg_text = message.text.replace('/broadcast', '').strip()
         if not msg_text:
-            bot.reply_to(message, "⚠️ အသုံးပြုနည်း:\n1. ပို့ချင်သော ပုံ/ဗီဒီယိုကို Reply ထောက်ပြီး /broadcast ရေးပါ (သို့)\n2. /broadcast [စာသား] ရေးပါ။")
+            bot.reply_to(message, "⚠️ Use: /broadcast [Message] or Reply to a message.")
             return
         Thread(target=start_broadcast_process, args=(message, 'text', msg_text)).start()
 
 def start_broadcast_process(message, mode, content):
+    users = list(user_stats.find({}, {'_id': 1}))
+    status_msg = bot.reply_to(message, f"📢 Broadcast started... ({len(users)} users)")
+    sent, blocked = 0, 0
+    for user in users:
+        try:
+            if mode == 'copy':
+                bot.copy_message(chat_id=user['_id'], from_chat_id=message.chat.id, message_id=content)
+            else:
+                bot.send_message(user['_id'], content)
+            sent += 1
+            time.sleep(0.05)
+        except:
+            blocked += 1
+    bot.edit_message_text(chat_id=message.chat.id, message_id=status_msg.message_id, 
+                          text=f"✅ Done!\nSent: {sent}\nBlocked: {blocked}")
+
+# --- VIP ADD COMMAND ---
+@bot.message_handler(commands=['addvip'])
+def add_vip_user(message):
+    if str(message.from_user.id) != str(ADMIN_ID):
+        return
     try:
-        users = list(user_stats.find({}, {'_id': 1}))
-        total_users = len(users)
-        
-        status_msg = bot.reply_to(message, f"📢 Broadcast စတင်နေပါပြီ... (Users: {total_users})")
-        
-        sent_count = 0
-        blocked_count = 0
-        
-        for user in users:
-            try:
-                user_id = user['_id']
-                
-                # Mode ပေါ်မူတည်ပြီး ပို့ပုံပြောင်းမယ်
-                if mode == 'copy':
-                    # Reply ထားတဲ့ Message ကို ထပ်တူကူးပြီး ပို့မယ် (Photo/Video/Caption အကုန်ပါမယ်)
-                    bot.copy_message(chat_id=user_id, from_chat_id=message.chat.id, message_id=content)
-                else:
-                    # ရိုးရိုးစာသားပို့မယ်
-                    bot.send_message(user_id, content)
-                
-                sent_count += 1
-                time.sleep(0.05) 
-            except Exception:
-                blocked_count += 1
-                continue
-                
-        bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=status_msg.message_id,
-            text=f"✅ Broadcast ပြီးဆုံးပါပြီ!\n👥 ပို့လိုက်သူ: {sent_count}\n🚫 Block/Fail: {blocked_count}"
-        )
-    except Exception as e:
-        print(f"Broadcast Error: {e}")
+        parts = message.text.split() # /addvip 12345 30
+        uid = int(parts[1])
+        days = int(parts[2])
+        expiry = time.time() + (days * 86400)
+        user_stats.update_one({'_id': uid}, {'$set': {'vip_expiry': expiry}}, upsert=True)
+        bot.reply_to(message, f"✅ User {uid} is now VIP for {days} days.")
+    except:
+        bot.reply_to(message, "⚠️ Usage: /addvip [UserID] [Days]")
+
 # ==========================================
-# WEB SERVER & AUTO DELETE WORKER
+# WEB SERVER & WORKERS
 # ==========================================
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Bot is running with Custom Caption!"
+def home(): return "Bot Running with Protected Content Logic"
 
-def run_http():
-    app.run(host='0.0.0.0', port=8000)
+def run_http(): app.run(host='0.0.0.0', port=8000)
 
 def auto_delete_worker():
     while True:
         try:
-            current_time = time.time()
-            expired_messages = delete_queue.find({"delete_time": {"$lte": current_time}})
-            
-            for msg in expired_messages:
+            now = time.time()
+            # အချိန်ပြည့်သွားသော Message များကို ရှာပြီးဖျက်မည်
+            expired = delete_queue.find({"delete_time": {"$lte": now}})
+            for msg in expired:
                 try:
                     bot.delete_message(msg['chat_id'], msg['message_id'])
                 except:
                     pass
                 delete_queue.delete_one({'_id': msg['_id']})
-                
             time.sleep(60)
         except:
             time.sleep(5)
@@ -126,179 +122,170 @@ def auto_delete_worker():
 def keep_alive():
     Thread(target=run_http).start()
     Thread(target=auto_delete_worker).start()
-# ==========================================
 
-# --- Check Member Function ---
+# ==========================================
+# HELPER FUNCTIONS
+# ==========================================
 def is_subscribed(user_id):
+    """Channel 2 Member ဖြစ်မဖြစ် စစ်ဆေးခြင်း"""
     try:
         status = bot.get_chat_member(CHANNEL_2_ID, user_id).status
-        if status in ['creator', 'administrator', 'member']:
-            return True
-        return False
+        return status in ['creator', 'administrator', 'member']
     except:
         return False
 
-# --- Admin Section (Save Movie) ---
+def check_vip_status(user_id):
+    """VIP ဟုတ်မဟုတ်နှင့် သက်တမ်းစစ်ဆေးခြင်း"""
+    user = user_stats.find_one({'_id': user_id})
+    if user and 'vip_expiry' in user:
+        if user['vip_expiry'] > time.time():
+            return True
+    return False
+
+# ==========================================
+# ADMIN & USER HANDLERS
+# ==========================================
 @bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
-def handle_admin_forward(message):
+def handle_admin_save(message):
     caption = message.caption if message.caption else ""
     match = re.search(r'(\d+)', caption)
-    
     if match:
         custom_id = match.group(1)
-        real_msg_id = message.forward_from_message_id
-        
-        if not real_msg_id:
-             bot.reply_to(message, "⚠️ Channel 3 ထဲကနေ Forward လုပ်ပေးမှ အဆင်ပြေပါမယ်။")
-             return
-
+        # Channel 3 မှ Forward လုပ်မှသာ အလုပ်လုပ်မည်
+        if not message.forward_from_message_id:
+            bot.reply_to(message, "⚠️ Channel 3 မှ Forward လုပ်ပေးပါ။")
+            return
+            
         data = {
             '_id': custom_id,
-            'msg_id': real_msg_id,
-            # (ပြင်ဆင်ချက်) Caption ကို အပြည့်သိမ်းပါမယ် ([:50] ကို ဖြုတ်လိုက်သည်)
-            'file_name': caption 
+            'msg_id': message.forward_from_message_id,
+            'file_name': caption
         }
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
-        bot.reply_to(message, f"✅ Saved!\nCustom ID: {custom_id}")
+        bot.reply_to(message, f"✅ Saved ID: {custom_id}")
     else:
-        bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
+        bot.reply_to(message, "⚠️ No ID found in caption.")
 
-# --- User Section (Get Movie) ---
 @bot.message_handler(func=lambda message: True)
 def handle_user_request(message):
-    # 1. User ပို့တဲ့ ID စာကို ချက်ချင်း ဖျက်မယ် (Chat ရှင်းအောင်)
+    # 1. Clean User Chat
     try:
-        # (ပြင်ဆင်ချက်) message_id မပါရင် Error တက်တတ်လို့ ထည့်ပေးထားပါတယ်
-        bot.delete_message(message.chat.id) #message.message_id
+        bot.delete_message(message.chat.id, message.message_id)
     except:
         pass
 
     user_id = message.from_user.id
+    is_vip = check_vip_status(user_id)
 
-    # (ပြင်ဆင်ချက်) Start နှိပ်တာနဲ့ Database ထဲ အရင်သိမ်းပါမည်
+    # 2. START MESSAGE
     if message.text == '/start':
-        user_stats.update_one(
-            {'_id': user_id}, 
-            {'$set': {'active': True}}, 
-            upsert=True
-        )
-        bot.reply_to(message, f"🔰🔰Download ပြုလုပ်လိုသော Movie ID ရိုက်ထည့်ပါ🔰🔰")
+        user_stats.update_one({'_id': user_id}, {'$set': {'active': True}}, upsert=True)
+        status_txt = "🌟 VIP Member" if is_vip else "👤 Free Member"
+        bot.send_message(message.chat.id, f"🔰 **Movie Downloader** 🔰\n\nStatus: {status_txt}\n\nPlease enter Movie ID:", parse_mode="Markdown")
         return
 
-    if message.text.startswith('/'):
-        return
-
+    # 3. FORCE SUBSCRIBE CHECK (VIP ရော Free ရော စစ်မည်)
     if not is_subscribed(user_id):
-        # Member မဝင်ရသေးရင် Database ထဲထည့်မလား? (လိုချင်ရင် ဒီနေရာမှာလည်း update_one ထည့်လို့ရသည်)
-        # လက်ရှိကတော့ Member ဝင်ပြီးမှသာ Data သိမ်းမည့်ပုံစံဖြစ်နေသည်
         markup = types.InlineKeyboardMarkup()
-        btn = types.InlineKeyboardButton("Movie Store Member ဝင်ရန်", url=CHANNEL_2_LINK)
-        markup.add(btn)
-        bot.reply_to(message, "⚠️ မိတ်ဆွေသည် Movie Channel ကို Join မထားရသေးပါ။\nအောက်က Link ကိုနှိပ်ပြီး Member အရင်ဝင်ပေးပါ။", reply_markup=markup)
+        markup.add(types.InlineKeyboardButton("Join Channel First", url=CHANNEL_2_LINK))
+        bot.send_message(message.chat.id, "⚠️ Bot ကိုသုံးရန် အောက်ပါ Channel ကို Join ထားရပါမည်။", reply_markup=markup)
         return
 
-    # --- LIMIT CHECK ---
+    # 4. LIMIT CHECK (Free Only)
     current_time = time.time()
     user_data = user_stats.find_one({'_id': user_id})
-    daily_count = 0
-    reset_time = current_time + 86400
-    last_request = 0
-
-    if user_data:
-        reset_time = user_data.get('reset_time', current_time + 86400)
-        daily_count = user_data.get('daily_count', 0)
-        last_request = user_data.get('last_request_time', 0)
-
+    daily_count = user_data.get('daily_count', 0) if user_data else 0
+    reset_time = user_data.get('reset_time', current_time + 86400) if user_data else current_time + 86400
+    
+    if not is_vip:
+        # Reset Limit if new day
         if current_time > reset_time:
             daily_count = 0
             reset_time = current_time + 86400
             user_stats.update_one({'_id': user_id}, {'$set': {'daily_count': 0, 'reset_time': reset_time}})
 
         if daily_count >= DAILY_LIMIT:
-            bot.reply_to(message, f"❌ ဒီနေ့အတွက် Download Limit ပြည့်သွားပါပြီ။\n(၂၄ နာရီပြည့်မှ ပြန်လည် Download ပြုလုပ်နိုင်မည်) admin-@tec102024")
+            bot.send_message(message.chat.id, "❌ Daily Limit Reached. Buy VIP for Unlimited.")
             return
 
-        time_diff = current_time - last_request
-        if time_diff < COOLDOWN_SECONDS:
-            wait_time = int(COOLDOWN_SECONDS - time_diff)
-            bot.reply_to(message, f"⏳ ခဏစောင့်ပါ။ Waiting time - {wait_time}s ကျန်သေးသည်။")
+        # Cooldown Check
+        last_req = user_data.get('last_request_time', 0)
+        if (current_time - last_req) < COOLDOWN_SECONDS:
+            bot.send_message(message.chat.id, f"⏳ Please wait {int(COOLDOWN_SECONDS - (current_time - last_req))}s.")
             return
 
-    # --- Find & Send Movie ---
+    # 5. SEND MOVIE LOGIC
     custom_id = message.text.strip()
     movie_data = collection.find_one({'_id': custom_id})
-    
+
     if movie_data:
         real_msg_id = movie_data['msg_id']
-        # Database ထဲက မူရင်း Caption ကို ယူမယ်
-        original_caption = movie_data.get('file_name', '')
+        caption = f"{movie_data.get('file_name', '')}\n{CAPTION_SUFFIX}"
         
-        # မူရင်း Caption + Admin Credit ပေါင်းထည့်မယ်
-        new_caption = f"{original_caption}{CAPTION_SUFFIX}"
-        
-        waiting = bot.reply_to(message, f"🔍 Finding movie... ({daily_count + 1}/{DAILY_LIMIT})")
-        
+        # --- VIP VS FREE CONFIGURATION ---
+        if is_vip:
+            protect = False           # Save ရမယ်
+            del_delay = VIP_DELETE_TIME # 24 နာရီ
+            wait_msg = "💎 VIP Request: Sending File (Can Save)..."
+        else:
+            protect = True            # Save မရ
+            del_delay = FREE_DELETE_TIME # 5 နာရီ
+            wait_msg = f"👤 Free Request: Sending Protected File ({daily_count+1}/{DAILY_LIMIT})..."
+
+        status_msg = bot.send_message(message.chat.id, wait_msg)
+
         try:
-            # (ပြင်ဆင်ချက်) caption=new_caption ကို ထည့်ပေးလိုက်သည်
             sent_msg = bot.copy_message(
-                chat_id=user_id, 
-                from_chat_id=CHANNEL_3_ID, 
+                chat_id=user_id,
+                from_chat_id=CHANNEL_3_ID,
                 message_id=real_msg_id,
-                caption=new_caption
+                caption=caption,
+                protect_content=protect  # ဒီနေရာမှာ Save ရ/မရ ခွဲခြားသည်
             )
             
-            bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
-            
-            user_stats.update_one(
-                {'_id': user_id}, 
-                {
-                    '$set': {'last_request_time': current_time, 'reset_time': reset_time},
-                    '$inc': {'daily_count': 1}
-                }, 
-                upsert=True
-            )
-            
-            delete_time = time.time() + 60
+            # Delete Status Message
+            bot.delete_message(user_id, status_msg.message_id)
+
+            # Update Count for Free User
+            if not is_vip:
+                user_stats.update_one(
+                    {'_id': user_id}, 
+                    {
+                        '$set': {'last_request_time': current_time, 'reset_time': reset_time},
+                        '$inc': {'daily_count': 1}
+                    }, 
+                    upsert=True
+                )
+
+            # Schedule Auto Delete
+            delete_time = time.time() + del_delay
             delete_queue.insert_one({
                 'chat_id': user_id,
                 'message_id': sent_msg.message_id,
                 'delete_time': delete_time
             })
             
-        except Exception as e:
-            # --- AUTO CLEAN LOGIC (ဒီအပိုင်းက အသစ်ပါ) ---
-            # 1. "Finding..." ဆိုတဲ့ စာကို အရင်ဖျက်မယ်
-            try:
-                bot.delete_message(chat_id=user_id, message_id=waiting.message_id)
-            except:
-                pass
-
-            # 2. User ကို စာပြန်မယ်
-            bot.reply_to(message, "❌ တောင်းပန်ပါတယ်၊ ဒီဇာတ်ကားကို Channel ထဲမှ ဖျက်သိမ်းလိုက်ပါပြီ။")
+            # Info Message
+            info_txt = f"⏳ Auto-delete in {int(del_delay/3600)} hours."
+            if not is_vip:
+                info_txt += "\n🚫 Save/Forward Restricted (Free Mode)."
             
-            # 3. Database ထဲကနေပါ အဲ့ဒီ ID ကို အပြီးတိုင် ဖျက်မယ်
-            collection.delete_one({'_id': custom_id})
-            print(f"Deleted invalid movie ID {custom_id} from database.")
-    else:
-        bot.reply_to(message, f"❌ ID '{custom_id}' နှင့် Movie ရှာမတွေ့ပါ။ ID မှန်ကန်ကြောင်း ပြန်စစ်ပါ (သို့) Admin မှ မထည့်ရသေးခြင်း ဖြစ်နိုင်ပါသည်။ $ admin $ @tec102024")
+            # ဒီ Info စာကိုလည်း အချိန်တန်ရင် ဖျက်ချင်ရင် Queue ထဲထည့်လို့ရသည် (Optional)
+            info_msg = bot.send_message(message.chat.id, info_txt)
+            delete_queue.insert_one({
+                'chat_id': user_id,
+                'message_id': info_msg.message_id,
+                'delete_time': delete_time
+            })
 
-# --- Main Execution ---
+        except Exception as e:
+            try: bot.delete_message(user_id, status_msg.message_id)
+            except: pass
+            bot.send_message(message.chat.id, "❌ Error: Movie not found or deleted from database.")
+    else:
+        bot.send_message(message.chat.id, "❌ Invalid ID.")
+
 if __name__ == "__main__":
     keep_alive()
-    print("Bot started...")
-    while True:
-        try:
-            bot.infinity_polling(timeout=10, long_polling_timeout=5)
-        except Exception as e:
-            print(f"Bot crashed: {e}")
-            time.sleep(5)
-
-
-
-
-
-
-
-
-
-
+    print("Bot Started...")
+    bot.infinity_polling()
