@@ -213,7 +213,7 @@ def handle_message(message):
         markup = types.ReplyKeyboardRemove() # Default is remove
         if user_data.get('phone_number') is None:
             markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-            btn = types.KeyboardButton("📱 Register Phone Number", request_contact=True)
+            btn = types.KeyboardButton("Add to Contact", request_contact=True)
             markup.add(btn)
         
         txt = (f"🔰 **Movie Downloader** 🔰\n"
@@ -325,3 +325,4 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
