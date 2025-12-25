@@ -20,12 +20,12 @@ CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID')) # Database Channel
 # --- SETTINGS ---
 FREE_DAILY_LIMIT = 5
 FREE_DELETE_TIME = 86400     # 24 Hours
-FREE_COOLDOWN = 90           # 90 Seconds
+FREE_COOLDOWN = 120           # 120 Seconds
 
 VIP_SAVE_LIMIT = 15          # 15 Files Save Limit
 VIP_DELETE_TIME = 86400      # 24 Hours
 
-CAPTION_SUFFIX = "\n\n$ ဆက်သွယ်ရန် $ admin @tec102024"
+CAPTION_SUFFIX = "\n\n$ admin @tec102024"
 
 # --- Database Connection ---
 try:
@@ -193,7 +193,7 @@ def handle_contact(message):
         
         # Button ကို ပြန်ဖျက်ပြီး Welcome စာ ပြန်ပို့
         remove_kb = types.ReplyKeyboardRemove()
-        bot.send_message(message.chat.id, "✅ Phone Number Registered!", reply_markup=remove_kb)
+        bot.send_message(message.chat.id, "✅ Registration Successful!", reply_markup=remove_kb)
 
 # ==========================================
 # (5) MAIN LOGIC & START
@@ -216,10 +216,10 @@ def handle_message(message):
             btn = types.KeyboardButton("Add to Contact", request_contact=True)
             markup.add(btn)
         
-        txt = (f"🔰 **Movie Downloader** 🔰\n"
-               f"👋 Hello {user_name}\n"
-               f"🆔 `{user_id}`\n💎 Status: {status_text}\n\n"
-               f"🎬 Movie ID ရိုက်ထည့်ပါ:")
+        txt = (f"👋 Hello {user_name}\n"
+               f"🪪 Your ID `{user_id}`\n"
+               f"💎 Status: {status_text}\n"
+               f"🎬 Movie ID ရိုက်ထည့်ပါ")
         
         bot.send_message(message.chat.id, txt, parse_mode="Markdown", reply_markup=markup)
         return
@@ -228,14 +228,14 @@ def handle_message(message):
     if not check_subscription(user_id):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Join Channel First", url=CHANNEL_2_LINK))
-        bot.send_message(message.chat.id, "⚠️ Channel Join ထားမှ သုံးလို့ရပါမည်။", reply_markup=markup)
+        bot.send_message(message.chat.id, "⚠️ Movie Request လုပ်ရန် Channel Join ပေးပါ", reply_markup=markup)
         return
 
     # GET MOVIE
     movie_id = message.text.strip()
     movie = collection.find_one({'_id': movie_id})
     if not movie:
-        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။")
+        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။ မှန်ကန်ကြောင်းပြန်စစ်ဆေးပါ (သို့) Database တွင်မရှိနေခြင်းဖြစ်နိုင်သည်။\n\n admin@tec102024")
         return
 
     # LOGIC
@@ -254,21 +254,21 @@ def handle_message(message):
     if user_vip:
         if daily_count < VIP_SAVE_LIMIT:
             protect_content = False 
-            note = f"✅ VIP: Can Save ({daily_count+1}/{VIP_SAVE_LIMIT})"
+            note = f"✅ VIP Mode: ({daily_count+1}/{VIP_SAVE_LIMIT})"
         else:
             protect_content = True
             note = "⚠️ VIP: View Only Mode"
         delete_delay = VIP_DELETE_TIME
     else:
         if daily_count >= FREE_DAILY_LIMIT:
-            bot.send_message(message.chat.id, "❌ Daily Limit Reached.")
+            bot.send_message(message.chat.id, "❌ Daily Limit Reached. Unlimited ကြည့်ရှူနိုင်ရန် VIP ဝယ်ယူပါ။")
             return
         if (current_time - last_req) < FREE_COOLDOWN:
             bot.send_message(message.chat.id, f"⏳ Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
             return
         protect_content = True 
         delete_delay = FREE_DELETE_TIME
-        note = f"👤 Free: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
+        note = f"👤 Free Mode: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
 
     # SEND
     wait_msg = bot.send_message(message.chat.id, "🔍 Finding...")
@@ -325,4 +325,5 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
