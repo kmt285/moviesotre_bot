@@ -216,10 +216,9 @@ def handle_message(message):
             btn = types.KeyboardButton("Add to Contact", request_contact=True)
             markup.add(btn)
         
-        txt = (f"👋 Hello {user_name}\n"
+        txt = (f"👋 Hello {user_name}\n\n"
                f"🪪 Your ID `{user_id}`\n"
                f"💎 Status: {status_text}\n\n"
-               
                f"🎬 Movie ID ရိုက်ထည့်ပါ")
         
         bot.send_message(message.chat.id, txt, parse_mode="Markdown", reply_markup=markup)
@@ -326,6 +325,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
