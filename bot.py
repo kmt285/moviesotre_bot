@@ -20,11 +20,11 @@ CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID')) # Database Channel
 # --- SETTINGS ---
 # Free User Settings
 FREE_DAILY_LIMIT = 5
-FREE_DELETE_TIME = 18000     # ၅ နာရီ
-FREE_COOLDOWN = 60           # ၁ မိနစ်
+FREE_DELETE_TIME = 86400     # ၅ နာရီ
+FREE_COOLDOWN = 90           # ၁ မိနစ်
 
 # VIP User Settings
-VIP_SAVE_LIMIT = 10          # ၁၀ ပုဒ်အထိ Save ရမယ်
+VIP_SAVE_LIMIT = 15          # ၁၀ ပုဒ်အထိ Save ရမယ်
 VIP_DELETE_TIME = 86400      # ၂၄ နာရီ
 # ၁၀ ပုဒ်ကျော်ရင် Unlimited ဆက်ရမယ် (ဒါပေမဲ့ Save မရတော့ဘူး)
 
@@ -146,8 +146,8 @@ def save_movie(message):
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
+    #try: bot.delete_message(message.chat.id, message.message_id)
+   # except: pass
 
     # START
     if message.text == '/start':
@@ -157,8 +157,7 @@ def handle_message(message):
         
         txt = (f"🔰 **Movie Downloader** 🔰\n"
                f"🆔 `{user_id}`\n💎 Status: {status_text}\n\n"
-               f"VIP Benefit:\n✅ First {VIP_SAVE_LIMIT} movies: Save to Gallery\n"
-               f"♾️ After {VIP_SAVE_LIMIT}: Unlimited (View Only)\n\n"
+               f"Join VIP for Unlimited!\n\n"
                f"🎬 Movie ID ရိုက်ထည့်ပါ:")
         bot.send_message(message.chat.id, txt, parse_mode="Markdown")
         return
@@ -236,7 +235,7 @@ def handle_message(message):
         )
         
         bot.delete_message(message.chat.id, wait_msg.message_id)
-        bot.send_message(message.chat.id, f"{note}\n🗑️ Auto-delete in {int(delete_delay/3600)} hours.")
+        bot.send_message(message.chat.id, f"{note}\n🗑️ Auto-delete in {int(delete_delay/86400)} hours.")
 
         # Update Count (Everyone gets count update)
         user_stats.update_one(
@@ -287,3 +286,4 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
