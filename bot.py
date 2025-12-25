@@ -45,7 +45,7 @@ bot = telebot.TeleBot(API_TOKEN)
 # ==========================================
 
 def get_or_register_user(message):
-    """User Data သိမ်းခြင်း"""
+    """User Data သိမ်းခြင်း + Username Auto Update လုပ်ခြင်း"""
     user_id = message.from_user.id
     username = message.from_user.username
     first_name = message.from_user.first_name
@@ -60,8 +60,7 @@ def get_or_register_user(message):
             'first_name': first_name,
             'last_name': last_name,
             'phone_number': None,
-            # Email ဖြုတ်လိုက်ပါပြီ (Schema မှာတော့ နေရာလွတ်ထားပေးထားပါတယ်)
-            'email': None,
+            'email': None,                 # Email Slot
             'status': 'free',
             'vip_info': {'expiry': None, 'start_date': None},
             'usage': {
@@ -73,10 +72,11 @@ def get_or_register_user(message):
         user_stats.insert_one(new_user)
         return new_user
     else:
-        # Update Info logic
         update_data = {}
         if user.get('username') != username: update_data['username'] = username
         if user.get('first_name') != first_name: update_data['first_name'] = first_name
+        if user.get('last_name') != last_name: update_data['last_name'] = last_name
+            
         if update_data:
             user_stats.update_one({'_id': user_id}, {'$set': update_data})
             
@@ -116,7 +116,12 @@ def add_vip(message):
         uid = int(parts[1])
         days = int(parts[2])
         expiry = time.time() + (days * 86400)
-        user_stats.update_one({'_id': uid}, {'$set': {'status': 'vip', 'vip_info': {'expiry': expiry, 'start_date': time.time()}}}, upsert=True)
+        
+        user_stats.update_one(
+            {'_id': uid}, 
+            {'$set': {'status': 'vip', 'vip_info': {'expiry': expiry, 'start_date': time.time()}}}, 
+            upsert=True
+        )
         bot.reply_to(message, f"✅ User `{uid}` is now VIP for {days} days.", parse_mode="Markdown")
     except:
         bot.reply_to(message, "⚠️ Usage: `/addvip [UserID] [Days]`")
@@ -131,13 +136,36 @@ def delete_vip(message):
     except:
         bot.reply_to(message, "⚠️ Usage: `/delvip [UserID]`")
 
+@bot.message_handler(commands=['broadcast'])
+def broadcast(message):
+    if message.from_user.id != ADMIN_ID: return
+    msg = bot.reply_to(message, "🚀 Broadcasting...")
+    users = user_stats.find({}, {'_id': 1})
+    count = 0
+    for user in users:
+        try:
+            if message.reply_to_message:
+                bot.copy_message(user['_id'], message.chat.id, message.reply_to_message.message_id)
+            else:
+                text = message.text.replace('/broadcast', '')
+                if text.strip(): bot.send_message(user['_id'], text)
+            count += 1
+            time.sleep(0.05)
+        except: pass
+    bot.edit_message_text(chat_id=message.chat.id, message_id=msg.message_id, text=f"✅ Sent to {count} users.")
+
+# ==========================================
+# (3) SAVE MOVIE (Admin Only)
+# ==========================================
 @bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
 def save_movie(message):
     if not message.forward_from_message_id:
         bot.reply_to(message, "⚠️ Channel 3 (Database) မှ Forward လုပ်ပေးပါ။")
         return
+
     caption = message.caption if message.caption else ""
     match = re.search(r'^\s*(\d+)', caption) 
+    
     if match:
         custom_id = match.group(1)
         data = {'_id': custom_id, 'msg_id': message.forward_from_message_id, 'file_name': caption}
@@ -147,77 +175,105 @@ def save_movie(message):
         bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
 
 # ==========================================
-# (3) REGISTRATION FLOW (PHONE ONLY)
+# (4) REGISTRATION FLOW (PHONE -> EMAIL)
 # ==========================================
 
+# Step 1: Handle Phone Number
 @bot.message_handler(content_types=['contact'])
 def handle_contact(message):
     if message.contact:
         user_id = message.from_user.id
-        phone = message.contact.phone_number
+        phone_number = message.contact.phone_number
         
-        # Save Phone Number
-        user_stats.update_one({'_id': user_id}, {'$set': {'phone_number': phone}})
+        # Save Phone
+        user_stats.update_one({'_id': user_id}, {'$set': {'phone_number': phone_number}})
         
-        # Remove Keyboard & Success Message
+        # Ask for Email (Next Step)
         remove_kb = types.ReplyKeyboardRemove()
-        bot.send_message(
-            message.chat.id, 
-            "✅ **Registration Successful!**\n\nအကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။\nယခု Movie ID ရိုက်ထည့်၍ ဇာတ်ကားများ ဒေါင်းယူနိုင်ပါပြီ။", 
-            parse_mode="Markdown", 
-            reply_markup=remove_kb
-        )
+        msg = bot.send_message(message.chat.id, "✅ Phone received.\n\n✉️ **ကျေးဇူးပြု၍ Email လိပ်စာ ရိုက်ထည့်ပေးပါ:**\n(ဥပမာ - example@gmail.com)", parse_mode="Markdown", reply_markup=remove_kb)
+        
+        # Register Next Step Handler (Wait for text input)
+        bot.register_next_step_handler(msg, handle_email_step)
+
+# Step 2: Handle Email Input
+def handle_email_step(message):
+    user_id = message.from_user.id
+    email_text = message.text
+    
+    # Simple Validation (Check if contains @)
+    if not email_text or "@" not in email_text:
+        msg = bot.send_message(message.chat.id, "⚠️ Email ပုံစံ မှားယွင်းနေပါသည်။ ပြန်လည်ရိုက်ထည့်ပါ:")
+        bot.register_next_step_handler(msg, handle_email_step)
+        return
+
+    # Save Email
+    user_stats.update_one({'_id': user_id}, {'$set': {'email': email_text}})
+    
+    # Registration Complete -> Show Menu
+    show_main_menu(message)
+
+def show_main_menu(message):
+    user_id = message.from_user.id
+    vip_status = is_vip(user_id)
+    status_text = "🌟 VIP Member" if vip_status else "👤 Free Member"
+    user_name = message.from_user.first_name
+    
+    txt = (f"🔰 **Movie Downloader** 🔰\n"
+           f"👋 Hello {user_name}\n"
+           f"🆔 `{user_id}`\n💎 Status: {status_text}\n\n"
+           f"✅ Registration Complete!\n"
+           f"🎬 Movie ID ရိုက်ထည့်ပါ:")
+    
+    bot.send_message(message.chat.id, txt, parse_mode="Markdown")
 
 # ==========================================
-# (4) MAIN LOGIC (STRICT GATEKEEPER)
+# (5) MAIN LOGIC & START
 # ==========================================
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
-    user_data = get_or_register_user(message)
+    user_data = get_or_register_user(message) 
 
-    # 1. CHECK REGISTRATION (Must have Phone Number)
-    if user_data.get('phone_number') is None:
-        # Show Button to Register
-        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-        btn = types.KeyboardButton("Please Register!", request_contact=True)
-        markup.add(btn)
-        
-        bot.send_message(
-            message.chat.id, 
-            "⛔️ **Bot ကိုအသုံးပြုရန် Register လုပ်ရပါမည်။**\n\nအောက်ပါ Button ကိုနှိပ်၍ Register လုပ်ပေးပါ။ 👇", 
-            parse_mode="Markdown", 
-            reply_markup=markup
-        )
-        return
-
-    # 2. START MESSAGE (Registered User)
+    # START COMMAND
     if message.text == '/start':
-        vip_status = is_vip(user_id)
-        status_text = "🌟 VIP Member" if vip_status else "👤 Free Member"
-        user_name = message.from_user.first_name
+        # Check Phone First
+        if user_data.get('phone_number') is None:
+            markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+            btn = types.KeyboardButton("📱 Register Phone Number", request_contact=True)
+            markup.add(btn)
+            bot.send_message(message.chat.id, "👋 Welcome! Bot သုံးရန် Phone Number အရင်ပေးပို့ရပါမည်။", reply_markup=markup)
+            return
         
-        bot.send_message(
-            message.chat.id, 
-            f"🔰 **Movie Downloader** 🔰\n👋 Hello {user_name}\n🆔 `{user_id}`\n💎 Status: {status_text}\n\n✅ Registered\n🎬 Movie ID ရိုက်ထည့်ပါ:", 
-            parse_mode="Markdown"
-        )
+        # Check Email Second
+        if user_data.get('email') is None:
+            msg = bot.send_message(message.chat.id, "✉️ **ကျေးဇူးပြု၍ Email လိပ်စာ ရိုက်ထည့်ပေးပါ:**\n(ဥပမာ - example@gmail.com)", parse_mode="Markdown")
+            bot.register_next_step_handler(msg, handle_email_step)
+            return
+
+        # All Good -> Show Menu
+        show_main_menu(message)
         return
 
-    # 3. SUBSCRIPTION CHECK
+    # SUBSCRIPTION CHECK
     if not check_subscription(user_id):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Join Channel First", url=CHANNEL_2_LINK))
         bot.send_message(message.chat.id, "⚠️ Channel Join ထားမှ သုံးလို့ရပါမည်။", reply_markup=markup)
         return
 
-    # 4. MOVIE REQUEST LOGIC
+    # CHECK REGISTRATION AGAIN (In case they bypass start)
+    if user_data.get('phone_number') is None or user_data.get('email') is None:
+        bot.send_message(message.chat.id, "⚠️ ကျေးဇူးပြု၍ /start နှိပ်ပြီး Register အရင်လုပ်ပါ။")
+        return
+
+    # GET MOVIE
     movie_id = message.text.strip()
     movie = collection.find_one({'_id': movie_id})
     if not movie:
         bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။")
         return
 
+    # LOGIC
     user_vip = is_vip(user_id)
     current_time = time.time()
     usage = user_data.get('usage', {})
@@ -249,6 +305,7 @@ def handle_message(message):
         delete_delay = FREE_DELETE_TIME
         note = f"👤 Free: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
 
+    # SEND
     wait_msg = bot.send_message(message.chat.id, "🔍 Finding...")
     try:
         sent_msg = bot.copy_message(
@@ -278,7 +335,7 @@ def handle_message(message):
         bot.send_message(message.chat.id, "❌ Error sending movie.")
 
 # ==========================================
-# (5) SERVER
+# (6) SERVER
 # ==========================================
 app = Flask('')
 @app.route('/')
