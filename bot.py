@@ -253,11 +253,12 @@ def send_payment_info(call):
         "💎 **VIP Premium Plan** 💎\n\n"
         "🔥 Daily Limit မရှိ ကြိုက်သလောက်ကြည့်နိုင်ပါမည်။\n\n"
         "💸 **Pricing:**\n"
-        "• 1 Month - 3,000 Ks\n"
-        "• Lifetime - 10,000 Ks\n\n"
-        "🏦 **KBZ Pay:** `09123456789` (Mg Mg)\n"
-        "🏦 **Wave Pay:** `09123456789` (Mg Mg)\n\n"
-        "📸 ငွေလွှဲပြီးပါက Screenshot (Slip) ကို ဒီမှာ ပြန်ပို့ပေးပါ။"
+        "• 1 Month - 3,000 MMK\n"
+        "• 6 Month - 10,000 MMK\n"
+        "• Lifetime - 20000 MMK\n\n"
+        "🏦 **KBZ Pay:** `09986452915` (Zin Zin Moe)\n"
+        "🏦 **Wave Pay:** `09683596006` (Kyaw Min Tun)\n\n"
+        "📸 ငွေလွှဲပြီးပါက Screenshot (ပြေစာ) ကို ဒီမှာ ပြန်ပို့ပေးပါ။"
     )
     bot.send_message(call.message.chat.id, payment_text, parse_mode="Markdown")
 
@@ -429,4 +430,5 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
