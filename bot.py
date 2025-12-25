@@ -111,7 +111,7 @@ def auto_delete_worker():
             expired = delete_queue.find({"delete_time": {"$lte": now}})
             for msg in expired:
                 try:
-                    bot.delete_message(msg['chat_id'], msg['message_id'])
+                    bot.delete_message(msg['chat_id']) #msg['message_id']
                 except:
                     pass
                 delete_queue.delete_one({'_id': msg['_id']})
@@ -289,3 +289,4 @@ if __name__ == "__main__":
     keep_alive()
     print("Bot Started...")
     bot.infinity_polling()
+
