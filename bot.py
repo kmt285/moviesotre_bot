@@ -217,7 +217,7 @@ def handle_message(message):
             markup.add(btn)
         
         txt = (f"👋 Hello {user_name}\n\n"
-               f"🪪 Your ID `{user_id}`\n"
+               f"🪪 Your ID - `{user_id}`\n"
                f"💎 Status: {status_text}\n\n"
                f"🎬 Movie ID ရိုက်ထည့်ပါ")
         
@@ -281,7 +281,7 @@ def handle_message(message):
             protect_content=protect_content
         )
         bot.delete_message(message.chat.id, wait_msg.message_id)
-        bot.send_message(message.chat.id) #f"{note}\n🗑️ Auto-delete in {int(delete_delay/3600)} hours."
+        bot.send_message(message.chat.id,f"{note}\n🗑️ Auto-delete in {int(delete_delay/3600)} hours.") 
 
         user_stats.update_one(
             {'_id': user_id},
@@ -325,6 +325,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
