@@ -241,6 +241,53 @@ def handle_contact(message):
         bot.send_message(message.chat.id, "✅ Registration Successful!", reply_markup=remove_kb)
 
 # ==========================================
+# ==========================================
+# (4.5) PAYMENT & SLIP HANDLER (NEW)
+# ==========================================
+
+# (A) Buy VIP Button နှိပ်လိုက်ရင် Payment စာပြမည်
+@bot.callback_query_handler(func=lambda call: call.data == 'buy_vip')
+def send_payment_info(call):
+    # Payment အချက်အလက်များကို ဒီမှာ ပြင်ပါ
+    payment_text = (
+        "💎 **VIP Premium Plan** 💎\n\n"
+        "🔥 Daily Limit မရှိ ကြိုက်သလောက်ကြည့်နိုင်ပါမည်။\n\n"
+        "💸 **Pricing:**\n"
+        "• 1 Month - 3,000 Ks\n"
+        "• Lifetime - 10,000 Ks\n\n"
+        "🏦 **KBZ Pay:** `09123456789` (Mg Mg)\n"
+        "🏦 **Wave Pay:** `09123456789` (Mg Mg)\n\n"
+        "📸 ငွေလွှဲပြီးပါက Screenshot (Slip) ကို ဒီမှာ ပြန်ပို့ပေးပါ။"
+    )
+    bot.send_message(call.message.chat.id, payment_text, parse_mode="Markdown")
+
+# (B) User က Slip (Photo) ပို့လာရင် Admin ဆီ Forward လုပ်မည်
+@bot.message_handler(content_types=['photo'])
+def handle_payment_slip(message):
+    # Admin ပို့တာဆိုရင် ဘာမှမလုပ်ဘူး (User ပို့တာကိုဘဲ ဖမ်းမယ်)
+    if message.from_user.id == ADMIN_ID: return
+
+    user_id = message.from_user.id
+    username = message.from_user.username if message.from_user.username else "No Username"
+    first_name = message.from_user.first_name
+
+    # Admin ဆီပို့မည့် ပုံစံ
+    caption_to_admin = (
+        f"📩 **New Payment Slip Received!**\n\n"
+        f"👤 Name: {first_name}\n"
+        f"🆔 ID: `{user_id}`\n"
+        f"🔗 Username: @{username}\n\n"
+        f"⚠️ Check payment and use:\n"
+        f"`/addvip {user_id} 30`"
+    )
+
+    # Admin ဆီသို့ Forward လုပ်ခြင်း
+    try:
+        bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption_to_admin, parse_mode="Markdown")
+        bot.reply_to(message, "✅ Payment Slip လက်ခံရရှိပါသည်။ Admin မှ စစ်ဆေးပြီး မကြာမီ VIP ထည့်ပေးပါမည်။")
+    except Exception as e:
+        print(f"Error forwarding slip: {e}")
+        
 # (5) MAIN LOGIC & START
 # ==========================================
 @bot.message_handler(func=lambda m: True)
@@ -306,7 +353,19 @@ def handle_message(message):
         delete_delay = VIP_DELETE_TIME
     else:
         if daily_count >= FREE_DAILY_LIMIT:
-            bot.send_message(message.chat.id, "❌ Daily Limit Reached.\n\nဒီနေ့အတွက် Request Limit ပြည့်သွားပါပြီ။\n\n(၂၄ နာရီပြည့်မှ ပြန်လည် Request ပြုလုပ်နိုင်မည်။)\n\n Join VIP 🏆 for Unlimited \n\n admin 🌵 @tec102024")
+            # VIP ဝယ်ရန် Button ဖန်တီးခြင်း
+            markup = types.InlineKeyboardMarkup()
+            vip_btn = types.InlineKeyboardButton("💎 Buy VIP Package", callback_data='buy_vip')
+            markup.add(vip_btn)
+            
+            bot.send_message(
+                message.chat.id, 
+                "❌ Daily Limit Reached.\n\n"
+                "ဒီနေ့အတွက် Request Limit ပြည့်သွားပါပြီ။\n"
+                "(၂၄ နာရီပြည့်မှ ပြန်လည် Request ပြုလုပ်နိုင်မည်။)\n\n"
+                "Unlimited ကြည့်ရှုလိုပါက VIP ဝယ်ယူနိုင်ပါသည်။", 
+                reply_markup=markup
+            )
             return
         if (current_time - last_req) < FREE_COOLDOWN:
             bot.send_message(message.chat.id, f"⏳ Free Mode Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
@@ -370,3 +429,4 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
