@@ -17,16 +17,15 @@ CHANNEL_2_ID = int(os.getenv('CHANNEL_2_ID')) # Poster Channel
 CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID')) # Database Channel
 
-# --- SETTINGS ---
+# --- SETTINGS (Your Custom Settings) ---
 # Free User Settings
 FREE_DAILY_LIMIT = 5
-FREE_DELETE_TIME = 86400     # ၅ နာရီ
-FREE_COOLDOWN = 90           # ၁ မိနစ်
+FREE_DELETE_TIME = 86400     # 24 Hours (Comment says 5 hrs but code is 86400)
+FREE_COOLDOWN = 90           # 90 Seconds
 
 # VIP User Settings
-VIP_SAVE_LIMIT = 15          # ၁၀ ပုဒ်အထိ Save ရမယ်
-VIP_DELETE_TIME = 86400      # ၂၄ နာရီ
-# ၁၀ ပုဒ်ကျော်ရင် Unlimited ဆက်ရမယ် (ဒါပေမဲ့ Save မရတော့ဘူး)
+VIP_SAVE_LIMIT = 15          # 15 Files Save Limit
+VIP_DELETE_TIME = 86400      # 24 Hours
 
 CAPTION_SUFFIX = "\n\n$ ဆက်သွယ်ရန် $ admin @tec102024"
 
@@ -44,15 +43,49 @@ except Exception as e:
 bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
-# (1) HELPER FUNCTIONS
+# (1) HELPER FUNCTIONS (STRUCTURED DB)
 # ==========================================
 
-def is_vip(user_id):
-    """VIP ဖြစ်မဖြစ် စစ်ဆေးခြင်း"""
+def get_or_register_user(user_id):
+    """User Data ကို စနစ်တကျ (Structured) ယူမည်/မရှိရင် ဆောက်မည်"""
     user = user_stats.find_one({'_id': user_id})
-    if user and 'vip_expiry' in user:
-        if user['vip_expiry'] > time.time():
+    
+    # User မရှိသေးလျှင် အသစ်ဆောက်မည် (Schema Design)
+    if not user:
+        new_user = {
+            '_id': user_id,
+            'status': 'free',         # free / vip
+            'vip_info': {
+                'expiry': None,
+                'start_date': None
+            },
+            'usage': {
+                'daily_count': 0,
+                'reset_time': time.time() + 86400,
+                'last_request_time': 0
+            }
+        }
+        user_stats.insert_one(new_user)
+        return new_user
+    
+    return user
+
+def is_vip(user_id):
+    """VIP ဖြစ်မဖြစ်နှင့် သက်တမ်းစစ်ဆေးခြင်း"""
+    user = get_or_register_user(user_id)
+    
+    if user.get('status') == 'vip':
+        expiry = user.get('vip_info', {}).get('expiry', 0)
+        # သက်တမ်းကုန်မကုန် စစ်ခြင်း
+        if expiry and expiry > time.time():
             return True
+        else:
+            # သက်တမ်းကုန်ရင် Free ပြောင်းမည်
+            user_stats.update_one(
+                {'_id': user_id},
+                {'$set': {'status': 'free', 'vip_info.expiry': None}}
+            )
+            return False
     return False
 
 def check_subscription(user_id):
@@ -66,7 +99,7 @@ def check_subscription(user_id):
         return False
 
 # ==========================================
-# (2) ADMIN COMMANDS (Add/Remove VIP)
+# (2) ADMIN COMMANDS
 # ==========================================
 
 @bot.message_handler(commands=['addvip'])
@@ -79,7 +112,20 @@ def add_vip(message):
         days = int(parts[2])
         expiry = time.time() + (days * 86400)
         
-        user_stats.update_one({'_id': uid}, {'$set': {'vip_expiry': expiry}}, upsert=True)
+        # Structured Update
+        user_stats.update_one(
+            {'_id': uid}, 
+            {
+                '$set': {
+                    'status': 'vip',
+                    'vip_info': {
+                        'expiry': expiry,
+                        'start_date': time.time()
+                    }
+                }
+            }, 
+            upsert=True
+        )
         bot.reply_to(message, f"✅ User `{uid}` is now VIP for {days} days.", parse_mode="Markdown")
     except:
         bot.reply_to(message, "⚠️ Usage: `/addvip [UserID] [Days]`")
@@ -88,13 +134,15 @@ def add_vip(message):
 def delete_vip(message):
     if message.from_user.id != ADMIN_ID: return
     try:
-        # /delvip 123456
         parts = message.text.split()
         uid = int(parts[1])
         
-        # VIP Expiry ကို ဖျက်ပစ်မည် ($unset)
-        user_stats.update_one({'_id': uid}, {'$unset': {'vip_expiry': ""}})
-        bot.reply_to(message, f"🗑️ User `{uid}` မှ VIP status ကို ဖယ်ရှားလိုက်ပါပြီ။", parse_mode="Markdown")
+        # Free ပြန်ပြောင်းမည်
+        user_stats.update_one(
+            {'_id': uid}, 
+            {'$set': {'status': 'free', 'vip_info': {}}}
+        )
+        bot.reply_to(message, f"🗑️ User `{uid}` is now Free User.", parse_mode="Markdown")
     except:
         bot.reply_to(message, "⚠️ Usage: `/delvip [UserID]`")
 
@@ -141,19 +189,20 @@ def save_movie(message):
         bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
 
 # ==========================================
-# (4) MAIN LOGIC (VIP vs Free Hybrid)
+# (4) MAIN LOGIC (STRUCTURED + HYBRID)
 # ==========================================
 @bot.message_handler(func=lambda m: True)
 def handle_message(message):
     user_id = message.from_user.id
-    #try: bot.delete_message(message.chat.id, message.message_id)
-   # except: pass
+    # message ဖျက်ချင်ရင် အောက်က # ကိုဖြုတ်ပါ
+    # try: bot.delete_message(message.chat.id, message.message_id)
+    # except: pass
 
-    # START
+    # START COMMAND
     if message.text == '/start':
+        get_or_register_user(user_id) # Ensure DB structure
         vip_status = is_vip(user_id)
         status_text = "🌟 VIP Member" if vip_status else "👤 Free Member"
-        user_stats.update_one({'_id': user_id}, {'$set': {'active': True}}, upsert=True)
         
         txt = (f"🔰 **Movie Downloader** 🔰\n"
                f"🆔 `{user_id}`\n💎 Status: {status_text}\n\n"
@@ -180,31 +229,37 @@ def handle_message(message):
     user_vip = is_vip(user_id)
     current_time = time.time()
     
-    # User Stats Fetching
-    user_data = user_stats.find_one({'_id': user_id})
-    daily_count = user_data.get('daily_count', 0) if user_data else 0
-    reset_time = user_data.get('reset_time', current_time + 86400) if user_data else current_time + 86400
-    last_req = user_data.get('last_request_time', 0)
+    # Retrieve User Data (Structured)
+    user_data = get_or_register_user(user_id)
+    usage = user_data.get('usage', {})
+    
+    daily_count = usage.get('daily_count', 0)
+    reset_time = usage.get('reset_time', current_time + 86400)
+    last_req = usage.get('last_request_time', 0)
 
     # Daily Reset Logic
     if current_time > reset_time:
         daily_count = 0
         reset_time = current_time + 86400
-        user_stats.update_one({'_id': user_id}, {'$set': {'daily_count': 0, 'reset_time': reset_time}})
+        # Reset DB
+        user_stats.update_one(
+            {'_id': user_id}, 
+            {'$set': {'usage.daily_count': 0, 'usage.reset_time': reset_time}}
+        )
 
     # --- DECISION MAKING ---
     if user_vip:
         # === VIP LOGIC ===
         delete_delay = VIP_DELETE_TIME
         
-        # ၁၀ ပုဒ်အောက်ဆိုရင် Save ရမယ်
+        # ၁၅ ပုဒ်အောက်ဆိုရင် Save ရမယ်
         if daily_count < VIP_SAVE_LIMIT:
             protect_content = False 
             note = f"✅ VIP Privilege: Can Save ({daily_count+1}/{VIP_SAVE_LIMIT})"
         else:
-            # ၁၀ ပုဒ်ကျော်ရင် Save မရတော့ဘူး (ဒါပေမဲ့ Unlimited)
+            # ၁၅ ပုဒ်ကျော်ရင် Save မရတော့ဘူး (Unlimited)
             protect_content = True
-            note = "⚠️ VIP Note: Daily Save Limit Reached. (View Only Mode)"
+            note = "⚠️ VIP Note: Save Limit Reached. (View Only Mode)"
             
     else:
         # === FREE LOGIC ===
@@ -235,16 +290,20 @@ def handle_message(message):
         )
         
         bot.delete_message(message.chat.id, wait_msg.message_id)
+        
+        # Auto-delete message (3600 is used to display Hours correctly)
         bot.send_message(message.chat.id, f"{note}\n🗑️ Auto-delete in {int(delete_delay/3600)} hours.")
 
-        # Update Count (Everyone gets count update)
+        # Update Count (Structured Update)
         user_stats.update_one(
             {'_id': user_id},
             {
-                '$inc': {'daily_count': 1}, 
-                '$set': {'last_request_time': current_time, 'reset_time': reset_time}
-            },
-            upsert=True
+                '$inc': {'usage.daily_count': 1}, 
+                '$set': {
+                    'usage.last_request_time': current_time, 
+                    'usage.reset_time': reset_time
+                }
+            }
         )
 
         # Queue for Auto Delete
@@ -264,7 +323,7 @@ def handle_message(message):
 # ==========================================
 app = Flask('')
 @app.route('/')
-def home(): return "Bot Running with Hybrid VIP Logic"
+def home(): return "Bot Running with Structured DB"
 def run_http(): app.run(host='0.0.0.0', port=8000)
 def auto_delete_worker():
     while True:
@@ -286,5 +345,3 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
-
-
