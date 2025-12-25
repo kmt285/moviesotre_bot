@@ -206,7 +206,7 @@ def handle_message(message):
     # START COMMAND
     if message.text == '/start':
         vip_status = is_vip(user_id)
-        status_text = "🏆 VIP Member 🏆" if vip_status else "🔴 Free Member"
+        status_text = " VIP Member 🏆" if vip_status else "🔴 Free Member"
         user_name = message.from_user.first_name
         
         # Phone Number မရှိသေးရင် Button ပြမည်
@@ -264,7 +264,7 @@ def handle_message(message):
             bot.send_message(message.chat.id, "❌ Daily Limit Reached. Unlimited ကြည့်ရှူနိုင်ရန် VIP ဝယ်ယူပါ။\n\n admin 🌵 @tec102024")
             return
         if (current_time - last_req) < FREE_COOLDOWN:
-            bot.send_message(message.chat.id, f"⏳ Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
+            bot.send_message(message.chat.id, f"⏳ Free Mode Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
             return
         protect_content = True 
         delete_delay = FREE_DELETE_TIME
@@ -325,6 +325,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
