@@ -206,7 +206,7 @@ def handle_message(message):
     # START COMMAND
     if message.text == '/start':
         vip_status = is_vip(user_id)
-        status_text = " VIP Member 🏆" if vip_status else "🔴 Free Member"
+        status_text = " VIP Member 🏆" if vip_status else "Free Member🐼"
         user_name = message.from_user.first_name
         
         # Phone Number မရှိသေးရင် Button ပြမည်
@@ -325,6 +325,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
