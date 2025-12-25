@@ -156,6 +156,51 @@ def broadcast(message):
         except: pass
     bot.edit_message_text(chat_id=message.chat.id, message_id=msg.message_id, text=f"✅ Sent to {count} users.")
 
+# --- NEW COMMAND: LIST ALL USERS ---
+@bot.message_handler(commands=['users'])
+def list_users(message):
+    if message.from_user.id != ADMIN_ID: return
+    
+    wait_msg = bot.reply_to(message, "📂 Generating user list...")
+    
+    try:
+        # Get all users from DB
+        users = user_stats.find()
+        
+        # Create file content string
+        file_content = "ID | Name | Username | Status | Phone\n"
+        file_content += "="*60 + "\n"
+        
+        count = 0
+        for user in users:
+            uid = user.get('_id', 'N/A')
+            name = user.get('first_name', 'No Name')
+            username = user.get('username', 'None')
+            status = user.get('status', 'free')
+            phone = user.get('phone_number', 'None')
+            
+            line = f"{uid} | {name} | @{username} | {status} | {phone}\n"
+            file_content += line
+            count += 1
+            
+        file_content += f"\nTotal Users: {count}"
+        
+        # Write to temporary file
+        filename = "user_list.txt"
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(file_content)
+            
+        # Send the file
+        with open(filename, "rb") as f:
+            bot.send_document(message.chat.id, f, caption=f"✅ Total Users: {count}")
+            
+        # Clean up (Delete the file from server)
+        os.remove(filename)
+        bot.delete_message(message.chat.id, wait_msg.message_id)
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
 # ==========================================
 # (3) SAVE MOVIE (Admin Only)
 # ==========================================
@@ -325,21 +370,3 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
