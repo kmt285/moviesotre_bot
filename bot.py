@@ -345,7 +345,7 @@ def handle_contact(message):
         
         # Button ကို ပြန်ဖျက်ပြီး Welcome စာ ပြန်ပို့
         remove_kb = types.ReplyKeyboardRemove()
-        bot.send_message(message.chat.id, "✅ Registration Successful!", reply_markup=remove_kb)
+        bot.send_message(message.chat.id, "✅ Add to Contact Successful!", reply_markup=remove_kb)
 
 # ==========================================
 # ==========================================
@@ -362,7 +362,7 @@ def send_payment_info(call):
         "💸 **Pricing:**\n"
         "• 1 Month  -  3,000 MMK\n"
         "• 6 Month  - 10,000 MMK\n"
-        "• Lifetime - 20,000 MMK\n\n"
+        "• Lifetime  - 20,000 MMK\n\n"
         "🏦 **KBZ Pay:** `09986452915` (Zin Zin Moe)\n"
         "🏦 **Wave Pay:** `09683596006` (Kyaw Min Tun)\n\n"
         "📸 ငွေလွှဲပြီးပါက Screenshot (ပြေစာ) ကို ဒီမှာ ပြန်ပို့ပေးပါ။"
@@ -438,7 +438,7 @@ def handle_message(message):
         # User ဆီပို့မည့် စာသား
         txt = (f"👋 Hello {user_name}\n\n"
                f"🪪 Your ID - `{user_id}`\n"
-               f"💎 Status  -  {status_text}"
+               f"💎 Status   -  {status_text}"
                f"{vip_dates}\n\n"  # VIP ဆိုရင် ရက်စွဲတွေ ဒီမှာ ပေါ်လာမယ်
                f"🎬 Movie ID ရိုက်ထည့်ပါ")
         
@@ -570,6 +570,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
