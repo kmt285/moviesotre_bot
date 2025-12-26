@@ -40,6 +40,17 @@ except Exception as e:
 
 bot = telebot.TeleBot(API_TOKEN)
 
+# Database Connection အောက်မှာ ထည့်ထားနိုင်ပါတယ်
+try:
+    # ... connection codes ...
+    print("✅ MongoDB Connected!")
+    
+    # Indexing (ရှာဖွေမှု မြန်ဆန်စေရန်)
+    collection.create_index([("_id", pymongo.ASCENDING)]) # Movie ID အတွက်
+    user_stats.create_index([("_id", pymongo.ASCENDING)]) # User ID အတွက်
+except Exception as e:
+    print(f"❌ MongoDB Error: {e}")
+
 # ==========================================
 # (1) HELPER FUNCTIONS (AUTO UPDATE)
 # ==========================================
@@ -155,6 +166,27 @@ def broadcast(message):
             time.sleep(0.05)
         except: pass
     bot.edit_message_text(chat_id=message.chat.id, message_id=msg.message_id, text=f"✅ Sent to {count} users.")
+
+# --- NEW COMMAND: SERVER STATS ---
+@bot.message_handler(commands=['stats'])
+def bot_stats(message):
+    if message.from_user.id != ADMIN_ID: return
+    
+    # Database မှ စာရင်းများကို ရေတွက်ခြင်း
+    total_users = user_stats.count_documents({})
+    vip_users = user_stats.count_documents({'status': 'vip'})
+    free_users = total_users - vip_users
+    
+    # ဒီနေ့ Bot သုံးသွားတဲ့ သူအရေအတွက် (daily_count > 0)
+    active_today = user_stats.count_documents({'usage.daily_count': {'$gt': 0}})
+    
+    txt = (f"📊 **Bot Statistics**\n\n"
+           f"👥 Total Users: `{total_users}`\n"
+           f"🏆 VIP Members: `{vip_users}`\n"
+           f"🐼 Free Users: `{free_users}`\n"
+           f"🔥 Active Today: `{active_today}`")
+    
+    bot.reply_to(message, txt, parse_mode="Markdown")
 
 # --- NEW COMMAND: LIST ALL USERS ---
 @bot.message_handler(commands=['users'])
@@ -376,7 +408,9 @@ def handle_message(message):
         note = f"🔴 Free Mode: Save Restricted ({daily_count+1}/{FREE_DAILY_LIMIT})"
 
     # SEND
-    wait_msg = bot.send_message(message.chat.id, "🔍 Finding...")
+    # (Update: Finding... အစား Chat Action သုံးခြင်း)
+    bot.send_chat_action(message.chat.id, 'upload_video') 
+    
     try:
         sent_msg = bot.copy_message(
             chat_id=user_id,
@@ -385,9 +419,11 @@ def handle_message(message):
             caption=f"{movie.get('file_name', '')}{CAPTION_SUFFIX}",
             protect_content=protect_content
         )
-        bot.delete_message(message.chat.id, wait_msg.message_id)
-        bot.send_message(message.chat.id,f"{note}\n")
+        
+        # Limit စာသားပို့ခြင်း
+        bot.send_message(message.chat.id, f"{note}\n")
 
+        # Database Update
         user_stats.update_one(
             {'_id': user_id},
             {
@@ -395,15 +431,24 @@ def handle_message(message):
                 '$set': {'usage.last_request_time': current_time, 'usage.reset_time': reset_time}
             }
         )
+        # Auto Delete Queue ထဲထည့်ခြင်း
         delete_queue.insert_one({
             'chat_id': user_id,
             'message_id': sent_msg.message_id,
             'delete_time': current_time + delete_delay
         })
+        
     except Exception as e:
-        bot.delete_message(message.chat.id, wait_msg.message_id)
-        bot.send_message(message.chat.id, "❌ Error sending movie.")
-
+        # Error တက်ခဲ့လျှင် (ဥပမာ - Admin က Channel ထဲက ဇာတ်ကားဖျက်လိုက်မိရင်)
+        print(f"Send Error: {e}")
+        error_msg = str(e).lower()
+        
+        if "message to copy not found" in error_msg or "message not found" in error_msg:
+            bot.send_message(message.chat.id, "❌ တောင်းဆိုထားသော ဇာတ်ကားဖိုင် မရှိတော့ပါ (Deleted)။\nAdmin သို့ ဆက်သွယ်ပေးပါ။")
+        elif "bot was blocked by the user" in error_msg:
+            pass # User က Block ထားရင် ဘာမှဆက်မလုပ်
+        else:
+            bot.send_message(message.chat.id, "❌ Error sending movie. Please try again later.")
 # ==========================================
 # (6) SERVER
 # ==========================================
@@ -430,5 +475,6 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
