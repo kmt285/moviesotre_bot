@@ -177,6 +177,53 @@ def add_vip(message):
         # User က Bot ကို Block ထားရင် Error တက်နိုင်လို့ try-except ခံထားတာပါ
         bot.reply_to(message, f"⚠️ Error or User Blocked Bot: {e}\nUsage: `/addvip [UserID] [Days]`")
 
+# ... (addvip function အပေါ်မှာ ရှိနေမယ်) ...
+
+# ==========================================
+# INSERT HERE (ဒီနေရာမှာ ထည့်ပါ)
+# ==========================================
+
+@bot.message_handler(commands=['delvip'])
+def delete_vip(message):
+    if message.from_user.id != ADMIN_ID: return
+    try:
+        # Command ကို ခွဲထုတ်ခြင်း (Example: /delvip 123456)
+        parts = message.text.split()
+        
+        # ID မပါရင် Error ပြမယ်
+        if len(parts) < 2:
+            bot.reply_to(message, "⚠️ Usage: `/delvip [UserID]`")
+            return
+
+        uid = int(parts[1])
+        
+        # 1. Database Update (Free ပြန်ပြောင်း၊ VIP info ရှင်းထုတ်)
+        result = user_stats.update_one(
+            {'_id': uid}, 
+            {'$set': {'status': 'free', 'vip_info': {}}}
+        )
+        
+        # Database မှာ User မရှိရင် ပြောမယ်
+        if result.matched_count == 0:
+            bot.reply_to(message, "❌ User ID ရှာမတွေ့ပါ။")
+            return
+
+        # 2. Admin ကို Success Message ပြ
+        bot.reply_to(message, f"🗑️ User `{uid}` is now Free User.", parse_mode="Markdown")
+        
+        # 3. User ကို VIP ပျက်သွားကြောင်း လှမ်းပြော (Notification)
+        try:
+            bot.send_message(uid, "⚠️ **VIP Ended**\n\nလူကြီးမင်း၏ VIP Member သက်တမ်း ကုန်ဆုံးသွားပါပြီ။\nFree Member အဖြစ် ပြန်လည်သတ်မှတ်လိုက်ပါသည်။", parse_mode="Markdown")
+        except:
+            pass # User က Bot ကို Block ထားရင် ကျော်သွားမယ်
+
+    except ValueError:
+        bot.reply_to(message, "❌ User ID သည် ကိန်းဂဏန်း (Number) ဖြစ်ရပါမည်။")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+# ... (broadcast function က ဒီအောက်မှာ ဆက်ရှိနေမယ်) ...
+
 @bot.message_handler(commands=['broadcast'])
 def broadcast(message):
     if message.from_user.id != ADMIN_ID: return
@@ -523,6 +570,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
