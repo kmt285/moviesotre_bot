@@ -97,15 +97,38 @@ def get_or_register_user(message):
     return user
 
 def is_vip(user_id):
-    """VIP စစ်ဆေးခြင်း"""
+    """VIP စစ်ဆေးခြင်း + Auto Expire Notification"""
     user = user_stats.find_one({'_id': user_id})
+    
     if user and user.get('status') == 'vip':
         expiry = user.get('vip_info', {}).get('expiry', 0)
+        
+        # သက်တမ်း ကျန်သေးရင် True ပြန်မယ်
         if expiry and expiry > time.time():
             return True
+            
+        # သက်တမ်း ကုန်သွားရင် (Expire ဖြစ်ရင်)
         else:
-            user_stats.update_one({'_id': user_id}, {'$set': {'status': 'free', 'vip_info.expiry': None}})
+            # 1. Database မှာ Free User ပြန်ပြောင်းမယ်
+            user_stats.update_one(
+                {'_id': user_id}, 
+                {'$set': {'status': 'free', 'vip_info.expiry': None}}
+            )
+            
+            # 2. User ဆီကို စာလှမ်းပို့မယ် (NEW FEATURE)
+            try:
+                bot.send_message(
+                    user_id, 
+                    "⚠️ **VIP Expired**\n\n"
+                    "လူကြီးမင်း၏ VIP Member သက်တမ်း ကုန်ဆုံးသွားပါပြီ။ ⏳\n"
+                    "Free Member အဖြစ် ပြန်လည်သတ်မှတ်လိုက်ပါသည်။ 🐼", 
+                    parse_mode="Markdown"
+                )
+            except:
+                pass # User က Block ထားရင် ကျော်သွားမယ်
+                
             return False
+            
     return False
 
 def check_subscription(user_id):
@@ -500,6 +523,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
