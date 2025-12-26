@@ -360,9 +360,9 @@ def send_payment_info(call):
         "💎 **VIP Premium Plan** 💎\n\n"
         "🔥 Daily Limit မရှိ ကြိုက်သလောက်ကြည့်နိုင်ပါမည်။\n\n"
         "💸 **Pricing:**\n"
-        "• 1 Month - 3,000 MMK\n"
-        "• 6 Month - 10,000 MMK\n"
-        "• Lifetime - 20000 MMK\n\n"
+        "• 1 Month  -  3,000 MMK\n"
+        "• 6 Month  - 10,000 MMK\n"
+        "• Lifetime - 20,000 MMK\n\n"
         "🏦 **KBZ Pay:** `09986452915` (Zin Zin Moe)\n"
         "🏦 **Wave Pay:** `09683596006` (Kyaw Min Tun)\n\n"
         "📸 ငွေလွှဲပြီးပါက Screenshot (ပြေစာ) ကို ဒီမှာ ပြန်ပို့ပေးပါ။"
@@ -383,7 +383,7 @@ def handle_payment_slip(message):
     caption_to_admin = (
         f"📩 **New Payment Slip Received!**\n\n"
         f"👤 Name: {first_name}\n"
-        f"🆔 ID: `{user_id}`\n"
+        f"🆔 ID:  `{user_id}`\n"
         f"🔗 Username: @{username}\n\n"
         f"⚠️ Check payment and use:\n"
         f"`/addvip {user_id} 30`"
@@ -438,7 +438,7 @@ def handle_message(message):
         # User ဆီပို့မည့် စာသား
         txt = (f"👋 Hello {user_name}\n\n"
                f"🪪 Your ID - `{user_id}`\n"
-               f"💎 Status: {status_text}"
+               f"💎 Status  -  {status_text}"
                f"{vip_dates}\n\n"  # VIP ဆိုရင် ရက်စွဲတွေ ဒီမှာ ပေါ်လာမယ်
                f"🎬 Movie ID ရိုက်ထည့်ပါ")
         
@@ -455,7 +455,7 @@ def handle_message(message):
     movie_id = message.text.strip()
     movie = collection.find_one({'_id': movie_id})
     if not movie:
-        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။\n\n admin 🌵 @tec102024")
+        bot.send_message(message.chat.id, "❌ ID မှားယွင်းနေပါသည်။")
         return
 
     # LOGIC
@@ -474,7 +474,7 @@ def handle_message(message):
     if user_vip:
         if daily_count < VIP_SAVE_LIMIT:
             protect_content = False 
-            note = f"🏆 VIP Mode: 🔰 ({daily_count+1}/{VIP_SAVE_LIMIT})"
+            note = f"🏆 VIP Mode:  ({daily_count+1})" #/{VIP_SAVE_LIMIT}
         else:
             protect_content = True
             note = "⚠️ VIP Mode: Unlimited View Only"
@@ -491,7 +491,7 @@ def handle_message(message):
                 "❌ Daily Limit Reached.\n\n"
                 "ဒီနေ့အတွက် Request Limit ပြည့်သွားပါပြီ။\n"
                 "(၂၄ နာရီပြည့်မှ ပြန်လည် Request ပြုလုပ်နိုင်မည်။)\n\n"
-                "Unlimited ကြည့်ရှုလိုပါက VIP ဝယ်ယူနိုင်ပါသည်။", 
+                "Join VIP for Unlimited!", 
                 reply_markup=markup
             )
             return
@@ -570,6 +570,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
