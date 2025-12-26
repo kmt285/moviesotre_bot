@@ -6,6 +6,7 @@ import re
 from flask import Flask
 from threading import Thread
 import time
+from datetime import datetime
 
 # --- Configuration (Koyeb Environment Variables) ---
 API_TOKEN = os.getenv('BOT_TOKEN')
@@ -130,24 +131,28 @@ def add_vip(message):
         days = int(parts[2])
         expiry = time.time() + (days * 86400)
         
+        # 1. Database Update လုပ်မယ်
         user_stats.update_one(
             {'_id': uid}, 
             {'$set': {'status': 'vip', 'vip_info': {'expiry': expiry, 'start_date': time.time()}}}, 
             upsert=True
         )
+        
+        # 2. Admin ကို Success ဖြစ်ကြောင်း ပြန်ပြောမယ်
         bot.reply_to(message, f"✅ User `{uid}` is now VIP for {days} days.", parse_mode="Markdown")
-    except:
-        bot.reply_to(message, "⚠️ Usage: `/addvip [UserID] [Days]`")
-
-@bot.message_handler(commands=['delvip'])
-def delete_vip(message):
-    if message.from_user.id != ADMIN_ID: return
-    try:
-        uid = int(message.text.split()[1])
-        user_stats.update_one({'_id': uid}, {'$set': {'status': 'free', 'vip_info': {}}})
-        bot.reply_to(message, f"🗑️ User `{uid}` is now Free User.", parse_mode="Markdown")
-    except:
-        bot.reply_to(message, "⚠️ Usage: `/delvip [UserID]`")
+        
+        # 3. User ဆီကို VIP ရပြီဖြစ်ကြောင်း လှမ်းပြောမယ် (Notification)
+        user_msg = (f"🎉 **Congratulations!** 🎉\n\n"
+                    f"လူကြီးမင်း၏ အကောင့်အား VIP Member အဖြစ် အဆင့်မြှင့်တင်လိုက်ပါပြီ။ 💎\n\n"
+                    f"🗓 သက်တမ်း: **{days} ရက်**\n"
+                    f"✅ ယခုမှစ၍ Daily Limit မရှိ စိတ်ကြိုက်ကြည့်ရှုနိုင်ပါပြီ။\n\n"
+                    f"Enjoy Movies! 🎬")
+        
+        bot.send_message(uid, user_msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        # User က Bot ကို Block ထားရင် Error တက်နိုင်လို့ try-except ခံထားတာပါ
+        bot.reply_to(message, f"⚠️ Error or User Blocked Bot: {e}\nUsage: `/addvip [UserID] [Days]`")
 
 @bot.message_handler(commands=['broadcast'])
 def broadcast(message):
@@ -331,24 +336,44 @@ def handle_message(message):
     # START COMMAND
     if message.text == '/start':
         vip_status = is_vip(user_id)
-        status_text = " VIP Member 🏆" if vip_status else "Free Member🐼"
         user_name = message.from_user.first_name
         
-        # Phone Number မရှိသေးရင် Button ပြမည်
-        markup = types.ReplyKeyboardRemove() # Default is remove
+        # VIP Status စာသားနှင့် ရက်စွဲများ ပြင်ဆင်ခြင်း
+        if vip_status:
+            status_text = "VIP Member 🏆"
+            
+            # Database ထဲက VIP Info ကို ယူမယ်
+            vip_info = user_data.get('vip_info', {})
+            start_ts = vip_info.get('start_date')
+            expiry_ts = vip_info.get('expiry')
+            
+            # Timestamp ကို လူနားလည်တဲ့ ရက်စွဲပြောင်းမယ် (DD-MM-YYYY)
+            try:
+                s_date = datetime.fromtimestamp(start_ts).strftime('%d/%m/%Y')
+                e_date = datetime.fromtimestamp(expiry_ts).strftime('%d/%m/%Y')
+                vip_dates = f"\n🗓 Started: {s_date}\n⏳ Expires: {e_date}"
+            except:
+                vip_dates = "" # Error တက်ရင် ဘာမှမပြဘူး
+        else:
+            status_text = "Free Member 🐼"
+            vip_dates = ""
+
+        # Phone Number မရှိသေးရင် Button ပြမည် (မူရင်းအတိုင်း)
+        markup = types.ReplyKeyboardRemove()
         if user_data.get('phone_number') is None:
             markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
             btn = types.KeyboardButton("Add to Contact", request_contact=True)
             markup.add(btn)
         
+        # User ဆီပို့မည့် စာသား
         txt = (f"👋 Hello {user_name}\n\n"
                f"🪪 Your ID - `{user_id}`\n"
-               f"💎 Status: {status_text}\n\n"
+               f"💎 Status: {status_text}"
+               f"{vip_dates}\n\n"  # VIP ဆိုရင် ရက်စွဲတွေ ဒီမှာ ပေါ်လာမယ်
                f"🎬 Movie ID ရိုက်ထည့်ပါ")
         
         bot.send_message(message.chat.id, txt, parse_mode="Markdown", reply_markup=markup)
         return
-
     # SUBSCRIPTION CHECK
     if not check_subscription(user_id):
         markup = types.InlineKeyboardMarkup()
@@ -475,6 +500,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
