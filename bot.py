@@ -363,8 +363,8 @@ def send_payment_info(call):
         "• 1 Month  -  3,000 MMK\n"
         "• 6 Month  - 10,000 MMK\n"
         "• Lifetime  - 20,000 MMK\n\n"
-        "Available Payment 🏦 KBZPay & Wave Pay 🌵 Contact @moviestoreadmin\n\n"
-        "📸 ငွေလွှဲပြီးပါက Screenshot (ပြေစာ) ကို ဒီမှာ ပြန်ပို့ပေးပါ။"
+        "Available Payment 🏦 KBZPay & Wave Pay\n\n"
+        "ဆက်သွယ်ရန် admin🌵@moviestoreadmin"
     )
     bot.send_message(call.message.chat.id, payment_text, parse_mode="Markdown")
 
@@ -495,7 +495,7 @@ def handle_message(message):
             )
             return
         if (current_time - last_req) < FREE_COOLDOWN:
-            bot.send_message(message.chat.id, f"⏳ Free Mode Wait {int(FREE_COOLDOWN - (current_time - last_req))}s")
+            bot.send_message(message.chat.id, f"⏳ Free Mode Wait ({int(FREE_COOLDOWN - (current_time - last_req))})s စောင့်ပါ။")
             return
         protect_content = True 
         delete_delay = FREE_DELETE_TIME
@@ -569,6 +569,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
