@@ -363,8 +363,7 @@ def send_payment_info(call):
         "• 1 Month  -  3,000 MMK\n"
         "• 6 Month  - 10,000 MMK\n"
         "• Lifetime  - 20,000 MMK\n\n"
-        "🏦 **KBZ Pay:** `09986452915` (Zin Zin Moe)\n"
-        "🏦 **Wave Pay:** `09683596006` (Kyaw Min Tun)\n\n"
+        "Available Payment 🏦 KBZPay & Wave Pay 🌵 Contact @moviestoreadmin\n\n"
         "📸 ငွေလွှဲပြီးပါက Screenshot (ပြေစာ) ကို ဒီမှာ ပြန်ပို့ပေးပါ။"
     )
     bot.send_message(call.message.chat.id, payment_text, parse_mode="Markdown")
@@ -570,6 +569,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
