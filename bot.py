@@ -26,7 +26,7 @@ FREE_COOLDOWN = 120           # 120 Seconds
 VIP_SAVE_LIMIT = 15          # 15 Files Save Limit
 VIP_DELETE_TIME = 86400      # 24 Hours
 
-CAPTION_SUFFIX = "\n\n🌵admin @tec102024🌵" 
+CAPTION_SUFFIX = "\n\n🌵admin @moviestoreadmin🌵" 
 
 # --- Database Connection ---
 try:
@@ -569,6 +569,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
