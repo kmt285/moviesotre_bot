@@ -315,6 +315,33 @@ def start_backup_handler(message):
     # ဒါမှ Bot က မရပ်သွားဘဲ တခြားဟာတွေ ဆက်လုပ်လို့ရမှာပါ
     Thread(target=run_backup_logic, args=(message.chat.id,)).start()
 
+# ==========================================
+# RESET BACKUP STATUS (Admin Only)
+# ==========================================
+@bot.message_handler(commands=['reset_backup'])
+def reset_backup_status(message):
+    if message.from_user.id != ADMIN_ID: return
+    
+    msg = bot.reply_to(message, "♻️ Resetting backup data in Database...")
+    
+    try:
+        # Database ထဲက Movie အားလုံးရဲ့ backup_msg_id ကို ဖျက်ပစ်မည် ($unset)
+        result = collection.update_many(
+            {},  # {} ဆိုတာ အားလုံးကို ရွေးတာပါ
+            {'$unset': {'backup_msg_id': ""}} # $unset က field ကို ဖျက်တာပါ
+        )
+        
+        bot.edit_message_text(
+            f"✅ **Reset Successful!**\n\n"
+            f"Reset Movies: `{result.modified_count}`\n\n"
+            f"အခု /backup_start ပြန်နှိပ်ပြီး အစကနေ ပြန် run နိုင်ပါပြီ။",
+            chat_id=message.chat.id,
+            message_id=msg.message_id,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
 # --- NEW COMMAND: SERVER STATS ---
 @bot.message_handler(commands=['stats'])
 def bot_stats(message):
@@ -642,6 +669,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
