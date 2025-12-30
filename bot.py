@@ -130,7 +130,7 @@ def run_backup_logic(admin_chat_id):
                     chat_id=int(BACKUP_CHANNEL_ID),
                     from_chat_id=CHANNEL_3_ID,
                     message_id=original_msg_id,
-                    caption=f"{caption}\n\nOriginal ID: {movie_db_id}"
+                    caption=f"{caption}\n\n admin🌵@moviestoreadmin"
                 )
                 
                 # Success ဖြစ်ရင် Database မှာ Update လုပ်မယ်
@@ -639,6 +639,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
