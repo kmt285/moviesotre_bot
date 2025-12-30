@@ -37,20 +37,16 @@ try:
     delete_queue = db['delete_queue']
     user_stats = db['user_stats']
     print("✅ MongoDB Connected!")
-
-bot = telebot.TeleBot(API_TOKEN)
-
-# Database Connection အောက်မှာ ထည့်ထားနိုင်ပါတယ်
-try:
-    # ... connection codes ...
-    print("✅ MongoDB Connected!")
     
-    # Indexing (ရှာဖွေမှု မြန်ဆန်စေရန်)
-    collection.create_index([("_id", pymongo.ASCENDING)]) # Movie ID အတွက်
-    user_stats.create_index([("_id", pymongo.ASCENDING)]) # User ID အတွက်
+    # Indexing (ရှာဖွေမှု မြန်ဆန်စေရန်) - ဒီမှာ တစ်ခါတည်းပေါင်းထည့်ပါ
+    collection.create_index([("_id", pymongo.ASCENDING)]) 
+    user_stats.create_index([("_id", pymongo.ASCENDING)]) 
     collection.create_index("backup_msg_id")
+    
 except Exception as e:
     print(f"❌ MongoDB Error: {e}")
+
+bot = telebot.TeleBot(API_TOKEN)
 
 # ==========================================
 # (1) HELPER FUNCTIONS (AUTO UPDATE)
@@ -646,6 +642,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
