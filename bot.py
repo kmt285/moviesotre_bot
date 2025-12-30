@@ -37,8 +37,6 @@ try:
     delete_queue = db['delete_queue']
     user_stats = db['user_stats']
     print("✅ MongoDB Connected!")
-except Exception as e:
-    print(f"❌ MongoDB Error: {e}")
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -311,6 +309,15 @@ def broadcast(message):
             time.sleep(0.05)
         except: pass
     bot.edit_message_text(chat_id=message.chat.id, message_id=msg.message_id, text=f"✅ Sent to {count} users.")
+    
+# BACKUP COMMAND
+@bot.message_handler(commands=['backup_start'])
+def start_backup_handler(message):
+    if message.from_user.id != ADMIN_ID: return
+    
+    # Backup က ကြာနိုင်တဲ့အတွက် Thread ခွဲပြီး Run ပေးရပါမယ်
+    # ဒါမှ Bot က မရပ်သွားဘဲ တခြားဟာတွေ ဆက်လုပ်လို့ရမှာပါ
+    Thread(target=run_backup_logic, args=(message.chat.id,)).start()
 
 # --- NEW COMMAND: SERVER STATS ---
 @bot.message_handler(commands=['stats'])
@@ -639,6 +646,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
