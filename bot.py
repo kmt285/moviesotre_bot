@@ -50,6 +50,7 @@ try:
     # Indexing (ရှာဖွေမှု မြန်ဆန်စေရန်)
     collection.create_index([("_id", pymongo.ASCENDING)]) # Movie ID အတွက်
     user_stats.create_index([("_id", pymongo.ASCENDING)]) # User ID အတွက်
+    collection.create_index("backup_msg_id")
 except Exception as e:
     print(f"❌ MongoDB Error: {e}")
 
@@ -98,45 +99,33 @@ def get_or_register_user(message):
     return user
 
 # ==========================================
-# (X) BACKUP SYSTEM (CLONING)
-# ==========================================
-
-@bot.message_handler(commands=['backup_start'])
-def start_backup_process(message):
-    if message.from_user.id != ADMIN_ID: return
-    
-    if not BACKUP_CHANNEL_ID:
-        bot.reply_to(message, "❌ BACKUP_CHANNEL_ID မထည့်ရသေးပါ။")
-        return
-
-    bot.reply_to(message, "🔄 **Backup Process Started...**\n\nMovie များကို Backup Channel သို့ ကူးယူနေပါပြီ။\n(Background တွင် Run နေမည်ဖြစ်၍ Bot ကို ပုံမှန်အတိုင်း ဆက်သုံးနိုင်ပါသည်)")
-
-    # Thread ခွဲပြီး Run မည် (Bot မလေးအောင်လို့ပါ)
-    Thread(target=run_backup_logic, args=(message.chat.id,)).start()
-
 def run_backup_logic(admin_chat_id):
     try:
-        # Database ထဲက ဇာတ်ကားအားလုံးကို ဆွဲထုတ်မယ်
-        movies = collection.find({})
-        total = collection.count_documents({})
-        count = 0
+        # (ပြင်ဆင်ချက်) Backup မလုပ်ရသေးသော ဖိုင်များကိုသာ ရှာမည်
+        # backup_msg_id မရှိသော (False ဖြစ်သော) ဖိုင်များကို filter လုပ်သည်
+        movies_cursor = collection.find({'backup_msg_id': {'$exists': False}})
+        
+        # မလုပ်ရသေးတာ ဘယ်နှစ်ပုဒ်ကျန်လဲ ရေတွက်မယ်
+        pending_count = collection.count_documents({'backup_msg_id': {'$exists': False}})
+        total_in_db = collection.count_documents({})
+        
+        if pending_count == 0:
+            bot.send_message(admin_chat_id, "✅ **All Up to Date!**\n\nBackup လုပ်ရန် ဖိုင်အသစ် မရှိပါ။")
+            return
+
         success = 0
         failed = 0
+        processed = 0
         
-        start_msg = bot.send_message(admin_chat_id, f"📂 Total Movies: {total}\n🚀 Starting Copy...")
+        start_msg = bot.send_message(admin_chat_id, f"🚀 **Backup Started...**\n\n📂 Total Movies: {total_in_db}\n🆕 New Files to Copy: {pending_count}")
 
-        for movie in movies:
+        for movie in movies_cursor:
             movie_db_id = movie['_id']
             original_msg_id = movie['msg_id']
             caption = movie.get('file_name', 'Movie')
-            
-            # Backup ပြီးသား ဟုတ်/မဟုတ် စစ်မယ် (မလိုအပ်ဘဲ ထပ်မကူးအောင်)
-            if movie.get('backup_msg_id'):
-                count += 1
-                continue
 
             try:
-                # Copy Message (ဒါက အဓိက key ပါ)
+                # Copy Message
                 backup_msg = bot.copy_message(
                     chat_id=int(BACKUP_CHANNEL_ID),
                     from_chat_id=CHANNEL_3_ID,
@@ -144,39 +133,39 @@ def run_backup_logic(admin_chat_id):
                     caption=f"{caption}\n\nOriginal ID: {movie_db_id}"
                 )
                 
-                # Database မှာ Backup ID ကို မှတ်ထားမယ် (နောက်တစ်ခါ ထပ်မကူးအောင်)
+                # Success ဖြစ်ရင် Database မှာ Update လုပ်မယ်
                 collection.update_one(
                     {'_id': movie_db_id},
                     {'$set': {'backup_msg_id': backup_msg.message_id}}
                 )
                 success += 1
                 
-                # FloodWait မမိအောင် နည်းနည်းစောင့်မယ် (အရေးကြီးပါတယ်)
+                # FloodWait ကာကွယ်ရန် ၃ စက္ကန့် စောင့်မယ်
                 time.sleep(3) 
 
             except Exception as e:
                 print(f"Failed ID {movie_db_id}: {e}")
                 failed += 1
-                time.sleep(2) # Error တက်ရင်လည်း နည်းနည်းစောင့်မယ်
+                time.sleep(2)
 
-            count += 1
+            processed += 1
             
-            # အပုဒ် ၁၀၀ ပြီးတိုင်း Admin ကို အကြောင်းကြားမယ်
-            if count % 100 == 0:
+            # အပုဒ် ၂၀ ပြီးတိုင်း Admin ကို Progress ပြမယ်
+            if processed % 20 == 0:
                 try:
                     bot.edit_message_text(
-                        f"🔄 Progress: {count}/{total}\n✅ Success: {success}\n❌ Failed: {failed}", 
+                        f"🔄 Progress: {processed}/{pending_count}\n✅ Success: {success}\n❌ Failed: {failed}", 
                         chat_id=admin_chat_id, 
                         message_id=start_msg.message_id
                     )
                 except: pass
 
         # အားလုံးပြီးသွားရင်
-        bot.send_message(admin_chat_id, f"✅ **Backup Completed!**\n\nTotal Scanned: {total}\n✅ Copied: {success}\n❌ Failed: {failed}")
+        bot.send_message(admin_chat_id, f"✅ **Backup Job Finished!**\n\n🆕 New Copied: {success}\n❌ Failed: {failed}")
 
     except Exception as e:
         bot.send_message(admin_chat_id, f"❌ Backup System Error: {e}")
-
+        
 def is_vip(user_id):
     """VIP စစ်ဆေးခြင်း + Auto Expire Notification"""
     user = user_stats.find_one({'_id': user_id})
@@ -650,6 +639,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
