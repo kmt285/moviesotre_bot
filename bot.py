@@ -415,8 +415,7 @@ def trigger_broadcast(message):
     bot.reply_to(message, "🔄 Broadcast logic started in background...")
     Thread(target=run_broadcast, args=(message.chat.id, reply_msg, text_to_send)).start()
     
-# BACKUP COMMAND
-# ==========================================
+
 # BACKUP COMMANDS (Start, Stop, Reset)
 # ==========================================
 
@@ -495,6 +494,67 @@ def bot_stats(message):
     
     bot.reply_to(message, txt, parse_mode="Markdown")
 
+# ==========================================
+# (NEW) EXPLORE / LIST COMMAND
+# ==========================================
+@bot.message_handler(commands=['list', 'explore', 'top'])
+def show_catalog(message):
+    # 1. Loading Message (တွက်ချက်ချိန်ကြာနိုင်လို့ပါ)
+    wait_msg = bot.reply_to(message, "🔄 Loading Movies Data...")
+
+    try:
+        # A. စုစုပေါင်း ဇာတ်ကားအရေအတွက်
+        total_movies = collection.count_documents({})
+
+        # B. အကြည့်အများဆုံး Top 10 (View Count အများဆုံးကို ရှာမည်)
+        # views မရှိသေးတဲ့ ကားတွေကို 0 လို့ သတ်မှတ်ပြီး ယူပါမယ်
+        top_cursor = collection.find().sort('views', -1).limit(10)
+        
+        top_text = ""
+        rank = 1
+        for m in top_cursor:
+            v_count = m.get('views', 0)
+            name = m.get('file_name', 'Unknown')
+            # နာမည်ရှည်လွန်းရင် ဖြတ်မည်
+            if len(name) > 25: name = name[:25] + "..."
+            
+            top_text += f"{rank}. {name} - ({v_count} views)\n"
+            rank += 1
+            
+        if not top_text: top_text = "No data yet."
+
+        # C. Categories (File Name ထဲက စာသားကို ရှာပြီး ခွဲခြားခြင်း)
+        # Database မှာ Genre မရှိလို့ နာမည်နဲ့ ခန့်မှန်းရပါမယ်
+        # Regex 'i' flag က အကြီးအသေး မရွေးပါ (Action = action)
+        cat_action = collection.count_documents({'file_name': {'$regex': 'action', '$options': 'i'}})
+        cat_drama = collection.count_documents({'file_name': {'$regex': 'drama|romance', '$options': 'i'}})
+        cat_horror = collection.count_documents({'file_name': {'$regex': 'horror|ghost', '$options': 'i'}})
+        cat_comedy = collection.count_documents({'file_name': {'$regex': 'comedy|funny', '$options': 'i'}})
+        cat_series = collection.count_documents({'file_name': {'$regex': 'series|season|ep', '$options': 'i'}})
+
+        # Report စာသား ပြင်ဆင်ခြင်း
+        final_msg = (
+            f"📊 **Movie Database Report** 📊\n\n"
+            f"🎬 **Total Movies:** `{total_movies}`\n"
+            f"➖➖➖➖➖➖➖➖➖➖\n"
+            f"🏆 **Top 10 Most Viewed:**\n"
+            f"{top_text}\n"
+            f"➖➖➖➖➖➖➖➖➖➖\n"
+            f"📂 **Categories (Estimate):**\n"
+            f"👊 Action: `{cat_action}`\n"
+            f"🎭 Drama/Romance: `{cat_drama}`\n"
+            f"👻 Horror: `{cat_horror}`\n"
+            f"😂 Comedy: `{cat_comedy}`\n"
+            f"📺 Series: `{cat_series}`\n\n"
+            f"⚠️ *Note: Categories are estimated from filenames.*"
+        )
+        
+        # ရလာတဲ့ Result ကို ပြန်ပို့မည်
+        bot.edit_message_text(final_msg, chat_id=message.chat.id, message_id=wait_msg.message_id, parse_mode="Markdown")
+
+    except Exception as e:
+        bot.edit_message_text(f"❌ Error: {e}", chat_id=message.chat.id, message_id=wait_msg.message_id)
+
 # --- NEW COMMAND: LIST ALL USERS ---
 @bot.message_handler(commands=['users'])
 def list_users(message):
@@ -540,9 +600,6 @@ def list_users(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-# ==========================================
-# (3) SAVE MOVIE (Admin Only)
-# ==========================================
 # ==========================================
 # (3) SAVE MOVIE (Improved Logic)
 # ==========================================
@@ -774,6 +831,23 @@ def handle_message(message):
                 '$set': {'usage.last_request_time': current_time, 'usage.reset_time': reset_time}
             }
         )
+
+        # Database Update (User Stats)
+        user_stats.update_one(
+            {'_id': user_id},
+            {
+                '$inc': {'usage.daily_count': 1}, 
+                '$set': {'usage.last_request_time': current_time, 'usage.reset_time': reset_time}
+            }
+        )
+        
+        # 🔥 (NEW) MOVIE VIEW COUNT UPDATE 🔥
+        # ဒီဇာတ်ကားကို ကြည့်သူ ၁ ယောက်တိုးမယ်
+        collection.update_one(
+            {'_id': movie_id},
+            {'$inc': {'views': 1}}
+        )
+        
         # Auto Delete Queue ထဲထည့်ခြင်း
         delete_queue.insert_one({
             'chat_id': user_id,
@@ -855,6 +929,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
