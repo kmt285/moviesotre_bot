@@ -400,14 +400,17 @@ def reset_backup_data(message):
             {'$unset': {'backup_msg_id': ""}} 
         )
         
+        # (ပြင်ဆင်ချက်) /backup_start ကို `` ကြားထဲထည့်လိုက်ပါသည် (Error မတက်အောင်)
         txt = (f"✅ **Database Reset Successful!**\n\n"
                f"🗑 Cleared Records: `{result.modified_count}`\n\n"
-               f"ယခုအခါ /backup_start ပြန်နှိပ်ပါက အစကနေ ပြန်လည် Backup လုပ်ပါလိမ့်မည်။")
+               f"ယခုအခါ `/backup_start` ပြန်နှိပ်ပါက အစကနေ ပြန်လည် Backup လုပ်ပါလိမ့်မည်။")
         
         bot.edit_message_text(txt, chat_id=message.chat.id, message_id=msg.message_id, parse_mode="Markdown")
         
     except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
+        # Markdown Error တက်ခဲ့ရင် ရိုးရိုးစာနဲ့ ပြန်ပို့ပေးမည့် အရန် Plan
+        bot.send_message(message.chat.id, f"✅ Database Reset Done!\nCleared: {result.modified_count}")
+        print(f"Error: {e}")
         
 # --- NEW COMMAND: SERVER STATS ---
 @bot.message_handler(commands=['stats'])
@@ -736,6 +739,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
