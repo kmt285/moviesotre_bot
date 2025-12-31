@@ -335,23 +335,85 @@ def delete_vip(message):
 
 # ... (broadcast function က ဒီအောက်မှာ ဆက်ရှိနေမယ်) ...
 
-@bot.message_handler(commands=['broadcast'])
-def broadcast(message):
-    if message.from_user.id != ADMIN_ID: return
-    msg = bot.reply_to(message, "🚀 Broadcasting...")
+# ==========================================
+# REPLACED BROADCAST FUNCTION (Threaded)
+# ==========================================
+
+def run_broadcast(admin_chat_id, source_message, text_message):
+    """Background Thread ဖြင့် Broadcast လုပ်ခြင်း"""
     users = user_stats.find({}, {'_id': 1})
-    count = 0
+    total_users = user_stats.count_documents({})
+    
+    success = 0
+    blocked = 0
+    deleted = 0
+    
+    # Admin ကို စပြီဖြစ်ကြောင်း အကြောင်းကြား
+    status_msg = bot.send_message(admin_chat_id, f"🚀 Broadcast Started to {total_users} users...")
+    
+    start_time = time.time()
+    
     for user in users:
+        user_id = user['_id']
         try:
-            if message.reply_to_message:
-                bot.copy_message(user['_id'], message.chat.id, message.reply_to_message.message_id)
-            else:
-                text = message.text.replace('/broadcast', '')
-                if text.strip(): bot.send_message(user['_id'], text)
-            count += 1
-            time.sleep(0.05)
-        except: pass
-    bot.edit_message_text(chat_id=message.chat.id, message_id=msg.message_id, text=f"✅ Sent to {count} users.")
+            if source_message:
+                # Reply လုပ်ထားတဲ့ Message ကို Forward/Copy လုပ်မယ်
+                bot.copy_message(user_id, admin_chat_id, source_message.message_id)
+            elif text_message:
+                # စာသားသီးသန့် ပို့မယ်
+                bot.send_message(user_id, text_message)
+            
+            success += 1
+            time.sleep(0.05) # Spam မဖြစ်အောင် အနည်းငယ်စောင့်
+            
+        except Exception as e:
+            err = str(e).lower()
+            if "blocked" in err:
+                blocked += 1
+            elif "user is deactivated" in err:
+                deleted += 1
+                # Account ဖျက်သွားတဲ့ User ကို Database ကနေ ဖယ်ရှားခြင်း (Optional)
+                user_stats.delete_one({'_id': user_id})
+            pass
+
+        # User 100 ပြီးတိုင်း Admin ကို Update လုပ်မယ်
+        if (success + blocked + deleted) % 100 == 0:
+            try:
+                bot.edit_message_text(
+                    f"🚀 Broadcasting...\n\n"
+                    f"✅ Sent: {success}\n"
+                    f"🚫 Blocked: {blocked}\n"
+                    f"🗑 Deleted: {deleted}\n"
+                    f"📊 Progress: {success + blocked + deleted}/{total_users}",
+                    chat_id=admin_chat_id,
+                    message_id=status_msg.message_id
+                )
+            except: pass
+
+    # ပြီးသွားရင် Final Report ပို့မယ်
+    duration = round(time.time() - start_time, 2)
+    final_text = (f"🏁 **Broadcast Completed!**\n\n"
+                  f"✅ Success: {success}\n"
+                  f"🚫 Blocked: {blocked}\n"
+                  f"🗑 Deleted Account: {deleted}\n"
+                  f"⏱ Duration: {duration}s")
+    
+    bot.send_message(admin_chat_id, final_text, parse_mode="Markdown")
+
+@bot.message_handler(commands=['broadcast'])
+def trigger_broadcast(message):
+    if message.from_user.id != ADMIN_ID: return
+    
+    reply_msg = message.reply_to_message
+    text_to_send = message.text.replace('/broadcast', '').strip()
+    
+    if not reply_msg and not text_to_send:
+        bot.reply_to(message, "⚠️ Usage:\n1. Reply to a message with /broadcast\n2. Or type /broadcast [Your Message]")
+        return
+    
+    # Thread အသစ်ဖြင့် စမယ် (Main Bot မလေးအောင်)
+    bot.reply_to(message, "🔄 Broadcast logic started in background...")
+    Thread(target=run_broadcast, args=(message.chat.id, reply_msg, text_to_send)).start()
     
 # BACKUP COMMAND
 # ==========================================
@@ -481,23 +543,40 @@ def list_users(message):
 # ==========================================
 # (3) SAVE MOVIE (Admin Only)
 # ==========================================
+# ==========================================
+# (3) SAVE MOVIE (Improved Logic)
+# ==========================================
 @bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
 def save_movie(message):
+    # Channel 3 ကနေ Forward လုပ်တာ ဟုတ်မဟုတ် စစ်မယ်
     if not message.forward_from_message_id:
-        bot.reply_to(message, "⚠️ Channel 3 (Database) မှ Forward လုပ်ပေးပါ။")
+        # Admin က ကိုယ်တိုင် Video တင်လိုက်တာဆိုရင်လည်း လက်ခံချင်ရင် ဒီအောက်က line ကို uncomment လုပ်နိုင်ပါတယ်
+        # bot.reply_to(message, "⚠️ Channel 3 (Database) မှ Forward လုပ်ပေးပါ (သို့) Caption ထည့်ပေးပါ။")
         return
 
     caption = message.caption if message.caption else ""
+    
+    # Caption ထဲက ပထမဆုံး တွေ့ရတဲ့ နံပါတ်ကို ID အဖြစ် ယူမယ်
     match = re.search(r'^\s*(\d+)', caption) 
     
     if match:
         custom_id = match.group(1)
-        data = {'_id': custom_id, 'msg_id': message.forward_from_message_id, 'file_name': caption}
+        # File Name ကို Caption အတိုင်း ယူမယ် (ID ကို ဖယ်ချင်ရင်လည်း ရပါတယ်)
+        file_name = caption # (သို့) caption.replace(custom_id, "").strip()
+        
+        data = {
+            '_id': custom_id, 
+            'msg_id': message.forward_from_message_id, 
+            'file_name': file_name
+        }
+        
+        # Database မှာ သိမ်းမယ် (ရှိပြီးသားဆို Update လုပ်မယ်)
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
-        bot.reply_to(message, f"✅ Saved! ID: `{custom_id}`", parse_mode="Markdown")
+        bot.reply_to(message, f"✅ **Movie Saved!**\n🆔 ID: `{custom_id}`\n📂 Name: {file_name}", parse_mode="Markdown")
+    
     else:
-        bot.reply_to(message, "⚠️ ID နံပါတ် မတွေ့ပါ။")
-
+        # ID မပါရင် Admin ကို သတိပေးမယ်
+        bot.reply_to(message, "⚠️ **Failed to Save!**\nCaption တွင် Movie ID နံပါတ် မတွေ့ပါ။\n(ဥပမာ: `1001 Spiderman`)")
 # ==========================================
 # (4) PHONE NUMBER HANDLER (NEW FEATURE)
 # ==========================================
@@ -714,26 +793,63 @@ def handle_message(message):
         else:
             bot.send_message(message.chat.id, "❌ Error sending movie. Please try again later.")
 # ==========================================
-# (6) SERVER
+# (6) SERVER & AUTO DELETE WORKER
 # ==========================================
 app = Flask('')
+
 @app.route('/')
-def home(): return "Bot Running"
-def run_http(): app.run(host='0.0.0.0', port=8000)
+def home():
+    return "Bot Running"
+
+def run_http():
+    app.run(host='0.0.0.0', port=8000)
+
 def auto_delete_worker():
+    """
+    Auto Delete System (Optimized)
+    """
+    print("♻️ Auto Delete Worker Started...")
     while True:
         try:
             now = time.time()
-            for msg in delete_queue.find({"delete_time": {"$lte": now}}):
-                try: bot.delete_message(msg['chat_id'], msg['message_id'])
-                except: pass
-                delete_queue.delete_one({'_id': msg['_id']})
-            time.sleep(60)
-        except: time.sleep(5)
+            
+            # (1) ဖျက်ရမည့် စာများကို ရှာမည် (Batch Size 100)
+            tasks = list(delete_queue.find({"delete_time": {"$lte": now}}).limit(100))
+            
+            if not tasks:
+                time.sleep(10) # ဖျက်စရာမရှိရင် ခဏနားမည်
+                continue
+
+            ids_to_remove_from_db = []
+
+            for msg in tasks:
+                try:
+                    # Telegram Channel/Chat ထဲမှ စာကို ဖျက်မည်
+                    bot.delete_message(msg['chat_id'], msg['message_id'])
+                except Exception as e:
+                    # User Block သွားရင်လည်း Database ထဲကတော့ ဖျက်ရမည်
+                    pass
+                
+                # Database မှ ဖျက်ရန် ID မှတ်ထားမည်
+                ids_to_remove_from_db.append(msg['_id'])
+                
+                # API Spam မဖြစ်အောင် အနည်းငယ်စောင့်မည်
+                time.sleep(0.05) 
+
+            # (2) Database ထဲမှ Bulk Delete လုပ်မည် (ပိုမြန်သည်)
+            if ids_to_remove_from_db:
+                delete_queue.delete_many({'_id': {'$in': ids_to_remove_from_db}})
+                print(f"♻️ Auto Deleted: {len(ids_to_remove_from_db)} messages")
+
+        except Exception as e:
+            print(f"❌ Auto Delete Error: {e}")
+            time.sleep(5)
 
 def keep_alive():
-    Thread(target=run_http).start()
-    Thread(target=auto_delete_worker).start()
+    t1 = Thread(target=run_http)
+    t2 = Thread(target=auto_delete_worker)
+    t1.start()
+    t2.start()
 
 if __name__ == "__main__":
     keep_alive()
