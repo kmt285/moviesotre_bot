@@ -93,27 +93,50 @@ def get_or_register_user(message):
     return user
 
 # ==========================================
+# ==========================================
+# (1.5) BACKUP SYSTEM (IMPROVED LOGIC)
+# ==========================================
+
+# Global Variables to control backup process
+is_backup_running = False
+stop_backup_flag = False
+
 def run_backup_logic(admin_chat_id):
+    global is_backup_running, stop_backup_flag
+    
+    # Flag ဖွင့်မည် (အခြား Thread များ ဝင်မလာနိုင်အောင်)
+    is_backup_running = True
+    stop_backup_flag = False
+    
     try:
-        # (ပြင်ဆင်ချက်) Backup မလုပ်ရသေးသော ဖိုင်များကိုသာ ရှာမည်
-        # backup_msg_id မရှိသော (False ဖြစ်သော) ဖိုင်များကို filter လုပ်သည်
-        movies_cursor = collection.find({'backup_msg_id': {'$exists': False}})
-        
-        # မလုပ်ရသေးတာ ဘယ်နှစ်ပုဒ်ကျန်လဲ ရေတွက်မယ်
+        # Backup မလုပ်ရသေးသော ဖိုင်များကို ရှာမည်
+        pending_cursor = collection.find({'backup_msg_id': {'$exists': False}})
         pending_count = collection.count_documents({'backup_msg_id': {'$exists': False}})
         total_in_db = collection.count_documents({})
         
         if pending_count == 0:
             bot.send_message(admin_chat_id, "✅ **All Up to Date!**\n\nBackup လုပ်ရန် ဖိုင်အသစ် မရှိပါ။")
+            is_backup_running = False
             return
 
         success = 0
         failed = 0
         processed = 0
         
-        start_msg = bot.send_message(admin_chat_id, f"🚀 **Backup Started...**\n\n📂 Total Movies: {total_in_db}\n🆕 New Files to Copy: {pending_count}")
+        status_msg = bot.send_message(
+            admin_chat_id, 
+            f"🚀 **Backup Started...**\n\n"
+            f"📂 Total Movies: {total_in_db}\n"
+            f"🆕 Target Copy: {pending_count}\n\n"
+            f"💡 ရပ်ချင်ရင် /backup_stop ကိုနှိပ်ပါ"
+        )
 
-        for movie in movies_cursor:
+        for movie in pending_cursor:
+            # STOP Command နှိပ်ထားခြင်း ရှိမရှိ စစ်မယ်
+            if stop_backup_flag:
+                bot.send_message(admin_chat_id, "🛑 **Backup Process Stopped by Admin!**")
+                break
+
             movie_db_id = movie['_id']
             original_msg_id = movie['msg_id']
             caption = movie.get('file_name', 'Movie')
@@ -134,13 +157,24 @@ def run_backup_logic(admin_chat_id):
                 )
                 success += 1
                 
-                # FloodWait ကာကွယ်ရန် ၃ စက္ကန့် စောင့်မယ်
-                time.sleep(3) 
+                # ပုံမှန်ဆို 1.5 စက္ကန့်လောက်ပဲ စောင့်မယ် (ပိုမြန်သွားမယ်)
+                time.sleep(1.5)
 
             except Exception as e:
-                print(f"Failed ID {movie_db_id}: {e}")
-                failed += 1
-                time.sleep(2)
+                err_str = str(e)
+                # FloodWait ဖြစ်ရင် Telegram ပြောတဲ့ အချိန်အတိုင်း စောင့်မယ်
+                if "Too Many Requests" in err_str:
+                    import re
+                    try:
+                        wait_time = int(re.search(r'retry after (\d+)', err_str).group(1)) + 1
+                        print(f"😴 Sleeping for {wait_time}s due to FloodWait...")
+                        time.sleep(wait_time)
+                    except:
+                        time.sleep(30)
+                else:
+                    print(f"Failed ID {movie_db_id}: {e}")
+                    failed += 1
+                    time.sleep(1) # Other errors
 
             processed += 1
             
@@ -148,17 +182,30 @@ def run_backup_logic(admin_chat_id):
             if processed % 20 == 0:
                 try:
                     bot.edit_message_text(
-                        f"🔄 Progress: {processed}/{pending_count}\n✅ Success: {success}\n❌ Failed: {failed}", 
+                        f"🚀 **Backup Running...**\n\n"
+                        f"📊 Progress: {processed}/{pending_count}\n"
+                        f"✅ Success: {success}\n"
+                        f"❌ Failed: {failed}\n\n"
+                        f"🛑 Stop: /backup_stop", 
                         chat_id=admin_chat_id, 
-                        message_id=start_msg.message_id
+                        message_id=status_msg.message_id
                     )
                 except: pass
 
-        # အားလုံးပြီးသွားရင်
-        bot.send_message(admin_chat_id, f"✅ **Backup Job Finished!**\n\n🆕 New Copied: {success}\n❌ Failed: {failed}")
+        # အားလုံးပြီးသွားရင် (သို့) Stop လုပ်လိုက်ရင်
+        final_text = (f"✅ **Backup Job Finished!**\n\n"
+                      f"🆕 Copied: {success}\n"
+                      f"❌ Failed: {failed}\n"
+                      f"🏁 Processed: {processed}")
+        
+        bot.send_message(admin_chat_id, final_text)
 
     except Exception as e:
-        bot.send_message(admin_chat_id, f"❌ Backup System Error: {e}")
+        bot.send_message(admin_chat_id, f"❌ Backup System Critical Error: {e}")
+    
+    finally:
+        # ဘာပဲဖြစ်ဖြစ် ပြီးသွားရင် Flag ပြန်ပိတ်ပေးရမယ်
+        is_backup_running = False
         
 def is_vip(user_id):
     """VIP စစ်ဆေးခြင်း + Auto Expire Notification"""
@@ -307,41 +354,61 @@ def broadcast(message):
     bot.edit_message_text(chat_id=message.chat.id, message_id=msg.message_id, text=f"✅ Sent to {count} users.")
     
 # BACKUP COMMAND
+# ==========================================
+# BACKUP COMMANDS (Start, Stop, Reset)
+# ==========================================
+
 @bot.message_handler(commands=['backup_start'])
 def start_backup_handler(message):
     if message.from_user.id != ADMIN_ID: return
     
-    # Backup က ကြာနိုင်တဲ့အတွက် Thread ခွဲပြီး Run ပေးရပါမယ်
-    # ဒါမှ Bot က မရပ်သွားဘဲ တခြားဟာတွေ ဆက်လုပ်လို့ရမှာပါ
+    # Run နေမနေ စစ်မယ်
+    if is_backup_running:
+        bot.reply_to(message, "⚠️ **Backup is ALREADY running!**\n\nရပ်ချင်ရင် /backup_stop ကိုနှိပ်ပါ။")
+        return
+
+    # မ run သေးရင် Thread အသစ်နဲ့ စမယ်
     Thread(target=run_backup_logic, args=(message.chat.id,)).start()
 
-# ==========================================
-# RESET BACKUP STATUS (Admin Only)
-# ==========================================
-@bot.message_handler(commands=['reset_backup'])
-def reset_backup_status(message):
+@bot.message_handler(commands=['backup_stop'])
+def stop_backup_handler(message):
+    if message.from_user.id != ADMIN_ID: return
+    global stop_backup_flag
+    
+    if not is_backup_running:
+        bot.reply_to(message, "⚠️ Backup process is NOT running.")
+        return
+
+    stop_backup_flag = True
+    bot.reply_to(message, "🛑 Stopping backup process... (Please wait a few seconds)")
+
+@bot.message_handler(commands=['reset_backup_database'])
+def reset_backup_data(message):
     if message.from_user.id != ADMIN_ID: return
     
-    msg = bot.reply_to(message, "♻️ Resetting backup data in Database...")
-    
+    # Run နေတုန်းဆိုရင် အရင်ရပ်ခိုင်းမယ်
+    if is_backup_running:
+        bot.reply_to(message, "⚠️ Backup လုပ်နေစဉ် Reset ချ၍ မရပါ။\nအရင်ဆုံး /backup_stop လုပ်ပါ။")
+        return
+
+    msg = bot.reply_to(message, "♻️ Database အတွင်းရှိ Backup မှတ်တမ်းဟောင်းများကို ဖျက်နေပါသည်...")
+
     try:
-        # Database ထဲက Movie အားလုံးရဲ့ backup_msg_id ကို ဖျက်ပစ်မည် ($unset)
+        # Database ထဲရှိ Movie အားလုံးမှ backup_msg_id ကို ဖျက်မည် ($unset)
         result = collection.update_many(
             {},  # {} ဆိုတာ အားလုံးကို ရွေးတာပါ
-            {'$unset': {'backup_msg_id': ""}} # $unset က field ကို ဖျက်တာပါ
+            {'$unset': {'backup_msg_id': ""}} 
         )
         
-        bot.edit_message_text(
-            f"✅ **Reset Successful!**\n\n"
-            f"Reset Movies: `{result.modified_count}`\n\n"
-            f"အခု /backup_start ပြန်နှိပ်ပြီး အစကနေ ပြန် run နိုင်ပါပြီ။",
-            chat_id=message.chat.id,
-            message_id=msg.message_id,
-            parse_mode="Markdown"
-        )
+        txt = (f"✅ **Database Reset Successful!**\n\n"
+               f"🗑 Cleared Records: `{result.modified_count}`\n\n"
+               f"ယခုအခါ /backup_start ပြန်နှိပ်ပါက အစကနေ ပြန်လည် Backup လုပ်ပါလိမ့်မည်။")
+        
+        bot.edit_message_text(txt, chat_id=message.chat.id, message_id=msg.message_id, parse_mode="Markdown")
+        
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
-
+        
 # --- NEW COMMAND: SERVER STATS ---
 @bot.message_handler(commands=['stats'])
 def bot_stats(message):
@@ -669,6 +736,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
