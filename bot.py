@@ -530,7 +530,6 @@ def show_catalog(message):
         cat_drama = collection.count_documents({'file_name': {'$regex': 'drama|romance', '$options': 'i'}})
         cat_horror = collection.count_documents({'file_name': {'$regex': 'horror|ghost', '$options': 'i'}})
         cat_comedy = collection.count_documents({'file_name': {'$regex': 'comedy|funny', '$options': 'i'}})
-        cat_series = collection.count_documents({'file_name': {'$regex': 'series|season|ep', '$options': 'i'}})
 
         # Report စာသား ပြင်ဆင်ခြင်း
         final_msg = (
@@ -545,7 +544,6 @@ def show_catalog(message):
             f"🎭 Drama/Romance: `{cat_drama}`\n"
             f"👻 Horror: `{cat_horror}`\n"
             f"😂 Comedy: `{cat_comedy}`\n"
-            f"📺 Series: `{cat_series}`\n\n"
             f"⚠️ *Note: Categories are estimated from filenames.*"
         )
         
@@ -929,6 +927,7 @@ if __name__ == "__main__":
     keep_alive()
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
