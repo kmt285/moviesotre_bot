@@ -923,8 +923,50 @@ def keep_alive():
     t1.start()
     t2.start()
 
+# ==========================================
+# (7) SET MENU COMMANDS (AUTO)
+# ==========================================
+def set_bot_commands():
+    # ၁. User များအတွက် မြင်ရမည့် Command များ
+    user_commands = [
+        types.BotCommand("start", "Restart Bot & Check Status"),
+        types.BotCommand("list", "Explore Top Movies"),
+    ]
+    
+    # ၂. Admin တစ်ယောက်တည်းသာ မြင်ရမည့် Command များ
+    admin_commands = [
+        # User Commands များကိုလည်း Admin မြင်အောင် ထည့်ထားပေးခြင်း
+        types.BotCommand("start", "Restart Bot"),
+        types.BotCommand("list", "Explore Movies"),
+        
+        # Admin Only Commands
+        types.BotCommand("stats", "View Server Statistics"),
+        types.BotCommand("users", "Get User List File"),
+        types.BotCommand("broadcast", "Broadcast Message"),
+        types.BotCommand("addvip", "Add VIP User"),
+        types.BotCommand("delvip", "Remove VIP User"),
+        types.BotCommand("backup_start", "Start Backup Process"),
+        types.BotCommand("backup_stop", "Stop Backup Process"),
+    ]
+
+    try:
+        # User အားလုံးအတွက် (Default Scope)
+        bot.set_my_commands(user_commands, scope=types.BotCommandScopeDefault())
+        
+        # Admin ID အတွက်သီးသန့် (Chat Scope)
+        # ADMIN_ID က environment variable ကနေ ယူထားတဲ့ int ဖြစ်ရပါမယ်
+        bot.set_my_commands(admin_commands, scope=types.BotCommandScopeChat(chat_id=ADMIN_ID))
+        
+        print("✅ Bot Commands Menu Updated!")
+    except Exception as e:
+        print(f"❌ Failed to set commands: {e}")
+
+# ==========================================
+# RUN SECTION
+# ==========================================
 if __name__ == "__main__":
-    keep_alive()
+    keep_alive()      # Web Server Start
+    set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
 
