@@ -864,6 +864,75 @@ def handle_message(message):
             pass # User က Block ထားရင် ဘာမှဆက်မလုပ်
         else:
             bot.send_message(message.chat.id, "❌ Error sending movie. Please try again later.")
+
+# ==========================================
+# (NEW) USER USEFUL COMMANDS
+# ==========================================
+
+# 1. User Profile & Limit Check
+@bot.message_handler(commands=['me', 'profile'])
+def check_my_profile(message):
+    user_id = message.from_user.id
+    user = user_stats.find_one({'_id': user_id})
+    
+    if not user:
+        bot.reply_to(message, "⚠️ User Data Not Found! Please type /start")
+        return
+
+    status = user.get('status', 'free').upper()
+    daily_count = user.get('usage', {}).get('daily_count', 0)
+    
+    # Text ပြင်ဆင်ခြင်း
+    if status == 'VIP':
+        expiry = user.get('vip_info', {}).get('expiry', 0)
+        exp_date = datetime.fromtimestamp(expiry).strftime('%d/%m/%Y') if expiry else "Unknown"
+        limit_txt = "✅ Unlimited Access"
+        status_txt = f"💎 VIP Member (Exp: {exp_date})"
+    else:
+        limit_txt = f"📊 Daily Usage: {daily_count} / {FREE_DAILY_LIMIT}"
+        status_txt = "🐼 Free Member"
+
+    msg = (f"👤 **User Profile**\n\n"
+           f"🆔 ID: `{user_id}`\n"
+           f"🏷 Status: {status_txt}\n"
+           f"{limit_txt}\n\n"
+           f"💡 Upgrade to VIP: /vip")
+    
+    bot.send_message(message.chat.id, msg, parse_mode="Markdown")
+
+# 2. VIP Pricing Shortcut
+@bot.message_handler(commands=['vip', 'plan'])
+def show_vip_plans(message):
+    markup = types.InlineKeyboardMarkup()
+    btn = types.InlineKeyboardButton("💎 Buy Now (Contact Admin)", url="https://t.me/moviestoreadmin") # Link ပြင်ပါ
+    markup.add(btn)
+    
+    txt = (
+        "💎 **VIP Premium Plan** 💎\n\n"
+        "✅ ကြော်ငြာမရှိ၊ Daily Limit မရှိ။\n"
+        "✅ Direct File ဖြင့် စိတ်ကြိုက်ကြည့်ရှုနိုင်မည်။\n\n"
+        "💰 **Pricing:**\n"
+        "• 1 Month  -  3,000 MMK\n"
+        "• Lifetime - 20,000 MMK\n\n"
+        "Payment: KBZPay, WavePay"
+    )
+    bot.send_message(message.chat.id, txt, reply_markup=markup, parse_mode="Markdown")
+
+# 3. Help / Guide
+@bot.message_handler(commands=['help'])
+def help_guide(message):
+    txt = (
+        "❓ **How to use?**\n\n"
+        "1️⃣ **Search Movie:**\n"
+        "Channel ထဲရှိ Movie ID နံပါတ်ကို ရိုက်ထည့်ပါ။\n"
+        "(Example: `1001`)\n\n"
+        "2️⃣ **Check Profile:**\n"
+        "မိမိ Limit ကြည့်ရန် `/me` ဟု ရိုက်ပါ။\n\n"
+        "3️⃣ **Contact Admin:**\n"
+        "အခက်အခဲရှိပါက @moviestoreadmin သို့ ဆက်သွယ်ပါ။"
+    )
+    bot.send_message(message.chat.id, txt, parse_mode="Markdown")
+    
 # ==========================================
 # (6) SERVER & AUTO DELETE WORKER
 # ==========================================
@@ -927,10 +996,13 @@ def keep_alive():
 # (7) SET MENU COMMANDS (AUTO)
 # ==========================================
 def set_bot_commands():
-    # ၁. User များအတွက် မြင်ရမည့် Command များ
+    # ၁. User များအတွက် Command အသစ်များ
     user_commands = [
-        types.BotCommand("start", "Restart Bot & Check Status"),
-        types.BotCommand("list", "Explore Top Movies"),
+        types.BotCommand("start", "🏠 Home / Restart"),
+        types.BotCommand("list", "🔥 Top Movies"),
+        types.BotCommand("me", "👤 My Profile & Limit"),  # <--- Added
+        types.BotCommand("vip", "💎 VIP Pricing"),        # <--- Added
+        types.BotCommand("help", "❓ How to use"),        # <--- Added
     ]
     
     # ၂. Admin တစ်ယောက်တည်းသာ မြင်ရမည့် Command များ
@@ -969,6 +1041,7 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
