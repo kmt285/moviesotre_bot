@@ -17,6 +17,8 @@ ADMIN_ID = int(os.getenv('ADMIN_ID'))
 CHANNEL_2_ID = int(os.getenv('CHANNEL_2_ID')) # Poster Channel
 CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID')) # Database Channel
+# Channel 3 အပြင် တခြား Channel တွေပါ ဒီမှာကော်မာ (,) ခံပြီး ထည့်လို့ရပါပြီ
+SOURCE_CHANNELS = [CHANNEL_3_ID]
 BACKUP_CHANNEL_ID = os.getenv('BACKUP_CHANNEL_ID')
 
 # --- SETTINGS ---
@@ -333,7 +335,49 @@ def delete_vip(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
-# ... (broadcast function က ဒီအောက်မှာ ဆက်ရှိနေမယ်) ...
+# ==========================================
+# 🔥 NEW COMMAND: DELETE RANGE (ID အလိုက် ဖျက်ခြင်း)
+# ==========================================
+@bot.message_handler(commands=['delrange'])
+def delete_range_movies(message):
+    if message.from_user.id != ADMIN_ID: return
+    
+    # Command: /delrange 8100 8899
+    try:
+        parts = message.text.split()
+        if len(parts) < 3:
+            bot.reply_to(message, "⚠️ Usage: `/delrange [Start_ID] [End_ID]`\nEg: `/delrange 8100 8899`")
+            return
+
+        start_id = int(parts[1])
+        end_id = int(parts[2])
+        
+        if start_id > end_id:
+            bot.reply_to(message, "❌ Start ID cannot be greater than End ID.")
+            return
+
+        # ID များကို String အဖြစ်ပြောင်း၍ List တည်ဆောက်ခြင်း
+        ids_to_delete = [str(i) for i in range(start_id, end_id + 1)]
+        
+        # Confirmation Message
+        wait_msg = bot.reply_to(message, f"🗑 Deleting movies from ID `{start_id}` to `{end_id}`...")
+
+        # MongoDB Delete Many
+        result = collection.delete_many({'_id': {'$in': ids_to_delete}})
+        
+        bot.edit_message_text(
+            f"✅ **Deletion Complete!**\n\n"
+            f"🔢 Range: `{start_id}` - `{end_id}`\n"
+            f"🗑 Deleted Count: `{result.deleted_count}` movies.",
+            chat_id=message.chat.id,
+            message_id=wait_msg.message_id,
+            parse_mode="Markdown"
+        )
+
+    except ValueError:
+        bot.reply_to(message, "❌ IDs must be numbers.")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
 
 # ==========================================
 # REPLACED BROADCAST FUNCTION (Threaded)
@@ -599,39 +643,42 @@ def list_users(message):
         bot.reply_to(message, f"❌ Error: {e}")
 
 # ==========================================
-# (3) SAVE MOVIE (Improved Logic)
+# ==========================================
+# (3) SAVE MOVIE (UPDATED FOR MULTI-CHANNEL)
 # ==========================================
 @bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
 def save_movie(message):
-    # Channel 3 ကနေ Forward လုပ်တာ ဟုတ်မဟုတ် စစ်မယ်
+    # Forward ဟုတ်မဟုတ် စစ်မယ်
     if not message.forward_from_message_id:
-        # Admin က ကိုယ်တိုင် Video တင်လိုက်တာဆိုရင်လည်း လက်ခံချင်ရင် ဒီအောက်က line ကို uncomment လုပ်နိုင်ပါတယ်
-        # bot.reply_to(message, "⚠️ Channel 3 (Database) မှ Forward လုပ်ပေးပါ (သို့) Caption ထည့်ပေးပါ။")
+        return
+
+    # 🔥 Check if Forward is from one of the Allowed SOURCE_CHANNELS
+    forward_chat_id = message.forward_from_chat.id if message.forward_from_chat else None
+    
+    # အကယ်၍ Forward လုပ်တဲ့ Channel က စာရင်းထဲမှာ မရှိရင် Admin ကို သတိပေးမယ်
+    if forward_chat_id not in SOURCE_CHANNELS:
+        bot.reply_to(message, f"⚠️ This channel ID `{forward_chat_id}` is not in SOURCE_CHANNELS list.")
         return
 
     caption = message.caption if message.caption else ""
-    
-    # Caption ထဲက ပထမဆုံး တွေ့ရတဲ့ နံပါတ်ကို ID အဖြစ် ယူမယ်
     match = re.search(r'^\s*(\d+)', caption) 
     
     if match:
         custom_id = match.group(1)
-        # File Name ကို Caption အတိုင်း ယူမယ် (ID ကို ဖယ်ချင်ရင်လည်း ရပါတယ်)
-        file_name = caption # (သို့) caption.replace(custom_id, "").strip()
+        file_name = caption 
         
         data = {
             '_id': custom_id, 
             'msg_id': message.forward_from_message_id, 
+            'channel_id': forward_chat_id,  # 🔥 Save Source Channel ID (ဘယ် Channel ကလဲဆိုတာ မှတ်မယ်)
             'file_name': file_name
         }
         
-        # Database မှာ သိမ်းမယ် (ရှိပြီးသားဆို Update လုပ်မယ်)
         collection.update_one({'_id': custom_id}, {'$set': data}, upsert=True)
-        bot.reply_to(message, f"✅ **Movie Saved!**\n🆔 ID: `{custom_id}`\n📂 Name: {file_name}", parse_mode="Markdown")
+        bot.reply_to(message, f"✅ **Saved from Channel!**\n🆔 ID: `{custom_id}`\n📢 Source: `{forward_chat_id}`", parse_mode="Markdown")
     
     else:
-        # ID မပါရင် Admin ကို သတိပေးမယ်
-        bot.reply_to(message, "⚠️ **Failed to Save!**\nCaption တွင် Movie ID နံပါတ် မတွေ့ပါ။\n(ဥပမာ: `1001 Spiderman`)")
+        bot.reply_to(message, "⚠️ **Failed!** No ID found in caption.")
 # ==========================================
 # (4) PHONE NUMBER HANDLER (NEW FEATURE)
 # ==========================================
@@ -875,15 +922,21 @@ def handle_message(message):
     # SEND
     # (Update: Finding... အစား Chat Action သုံးခြင်း)
     bot.send_chat_action(message.chat.id, 'upload_video') 
-    
+
+    # အရင် save ထားတဲ့ ကားဟောင်းတွေမှာ channel_id မပါရင် Default CHANNEL_3 ကိုသုံးမယ် (Error မတက်အောင်ပါ)
     try:
+        source_chat_id = movie.get('channel_id', CHANNEL_3_ID)
+        
         sent_msg = bot.copy_message(
             chat_id=user_id,
-            from_chat_id=CHANNEL_3_ID,
+            from_chat_id=source_chat_id, # 🔥 Dynamic Channel ID (ပြောင်းလိုက်တဲ့နေရာ)
             message_id=movie['msg_id'],
             caption=f"{movie.get('file_name', '')}{CAPTION_SUFFIX}",
             protect_content=protect_content
         )
+        
+        # Limit စာသားပို့ခြင်း (မူရင်းအတိုင်း)
+        bot.send_message(message.chat.id, f"{note}\n")
         
         # Limit စာသားပို့ခြင်း
         bot.send_message(message.chat.id, f"{note}\n")
@@ -1042,6 +1095,7 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
