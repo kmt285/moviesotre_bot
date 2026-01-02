@@ -18,7 +18,7 @@ CHANNEL_2_ID = int(os.getenv('CHANNEL_2_ID')) # Poster Channel
 CHANNEL_2_LINK = os.getenv('CHANNEL_2_LINK')
 CHANNEL_3_ID = int(os.getenv('CHANNEL_3_ID')) # Database Channel
 # Channel 3 အပြင် တခြား Channel တွေပါ ဒီမှာကော်မာ (,) ခံပြီး ထည့်လို့ရပါပြီ
-SOURCE_CHANNELS = [CHANNEL_3_ID]
+SOURCE_CHANNELS = [CHANNEL_3_ID, -1003344611532]
 BACKUP_CHANNEL_ID = os.getenv('BACKUP_CHANNEL_ID')
 
 # --- SETTINGS ---
@@ -1095,6 +1095,7 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
