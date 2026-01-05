@@ -105,7 +105,7 @@ stop_backup_flag = False
 def run_backup_logic(admin_chat_id):
     global is_backup_running, stop_backup_flag
     
-    # Flag ဖွင့်မည် (အခြား Thread များ ဝင်မလာနိုင်အောင်)
+    # Flag ဖွင့်မည်
     is_backup_running = True
     stop_backup_flag = False
     
@@ -141,12 +141,16 @@ def run_backup_logic(admin_chat_id):
             movie_db_id = movie['_id']
             original_msg_id = movie['msg_id']
             caption = movie.get('file_name', 'Movie')
+            
+            # 🔥 FIX: Database ထဲက မှတ်ထားတဲ့ channel_id ကို ယူမယ်
+            # မရှိရင် (အဟောင်းတွေအတွက်) CHANNEL_3_ID ကို default သုံးမယ်
+            source_chat_id = movie.get('channel_id', CHANNEL_3_ID)
 
             try:
-                # Copy Message
+                # Copy Message (Correct Source Channel)
                 backup_msg = bot.copy_message(
                     chat_id=int(BACKUP_CHANNEL_ID),
-                    from_chat_id=CHANNEL_3_ID,
+                    from_chat_id=source_chat_id, # <--- ပြင်ထားသော နေရာ (Dynamic Channel ID)
                     message_id=original_msg_id,
                     caption=f"{caption}\n\n admin🌵@moviestoreadmin"
                 )
@@ -158,12 +162,10 @@ def run_backup_logic(admin_chat_id):
                 )
                 success += 1
                 
-                # ပုံမှန်ဆို 1.5 စက္ကန့်လောက်ပဲ စောင့်မယ် (ပိုမြန်သွားမယ်)
                 time.sleep(1.5)
 
             except Exception as e:
                 err_str = str(e)
-                # FloodWait ဖြစ်ရင် Telegram ပြောတဲ့ အချိန်အတိုင်း စောင့်မယ်
                 if "Too Many Requests" in err_str:
                     try:
                         wait_time = int(re.search(r'retry after (\d+)', err_str).group(1)) + 1
@@ -174,11 +176,11 @@ def run_backup_logic(admin_chat_id):
                 else:
                     print(f"Failed ID {movie_db_id}: {e}")
                     failed += 1
-                    time.sleep(1) # Other errors
+                    time.sleep(1) 
 
             processed += 1
             
-            # အပုဒ် ၂၀ ပြီးတိုင်း Admin ကို Progress ပြမယ်
+            # Progress Update
             if processed % 20 == 0:
                 try:
                     bot.edit_message_text(
@@ -192,7 +194,6 @@ def run_backup_logic(admin_chat_id):
                     )
                 except: pass
 
-        # အားလုံးပြီးသွားရင် (သို့) Stop လုပ်လိုက်ရင်
         final_text = (f"✅ **Backup Job Finished!**\n\n"
                       f"🆕 Copied: {success}\n"
                       f"❌ Failed: {failed}\n"
@@ -204,7 +205,6 @@ def run_backup_logic(admin_chat_id):
         bot.send_message(admin_chat_id, f"❌ Backup System Critical Error: {e}")
     
     finally:
-        # ဘာပဲဖြစ်ဖြစ် ပြီးသွားရင် Flag ပြန်ပိတ်ပေးရမယ်
         is_backup_running = False
         
 def is_vip(user_id):
@@ -1073,3 +1073,4 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
