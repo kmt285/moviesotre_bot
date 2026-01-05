@@ -95,7 +95,6 @@ def get_or_register_user(message):
     return user
 
 # ==========================================
-# ==========================================
 # (1.5) BACKUP SYSTEM (IMPROVED LOGIC)
 # ==========================================
 
@@ -166,7 +165,6 @@ def run_backup_logic(admin_chat_id):
                 err_str = str(e)
                 # FloodWait ဖြစ်ရင် Telegram ပြောတဲ့ အချိန်အတိုင်း စောင့်မယ်
                 if "Too Many Requests" in err_str:
-                    import re
                     try:
                         wait_time = int(re.search(r'retry after (\d+)', err_str).group(1)) + 1
                         print(f"😴 Sleeping for {wait_time}s due to FloodWait...")
@@ -289,12 +287,6 @@ def add_vip(message):
     except Exception as e:
         # User က Bot ကို Block ထားရင် Error တက်နိုင်လို့ try-except ခံထားတာပါ
         bot.reply_to(message, f"⚠️ Error or User Blocked Bot: {e}\nUsage: `/addvip [UserID] [Days]`")
-
-# ... (addvip function အပေါ်မှာ ရှိနေမယ်) ...
-
-# ==========================================
-# INSERT HERE (ဒီနေရာမှာ ထည့်ပါ)
-# ==========================================
 
 @bot.message_handler(commands=['delvip'])
 def delete_vip(message):
@@ -643,7 +635,6 @@ def list_users(message):
         bot.reply_to(message, f"❌ Error: {e}")
 
 # ==========================================
-# ==========================================
 # (3) SAVE MOVIE (UPDATED FOR MULTI-CHANNEL)
 # ==========================================
 @bot.message_handler(content_types=['video', 'document'], func=lambda m: m.from_user.id == ADMIN_ID)
@@ -698,7 +689,6 @@ def handle_contact(message):
         remove_kb = types.ReplyKeyboardRemove()
         bot.send_message(message.chat.id, "✅ Add to Contact Successful!", reply_markup=remove_kb)
 
-# ==========================================
 # ==========================================
 # (4.5) PAYMENT & SLIP HANDLER (NEW)
 # ==========================================
@@ -935,22 +925,10 @@ def handle_message(message):
             protect_content=protect_content
         )
         
-        # Limit စာသားပို့ခြင်း (မူရင်းအတိုင်း)
-        bot.send_message(message.chat.id, f"{note}\n")
-        
         # Limit စာသားပို့ခြင်း
         bot.send_message(message.chat.id, f"{note}\n")
 
         # Database Update
-        user_stats.update_one(
-            {'_id': user_id},
-            {
-                '$inc': {'usage.daily_count': 1}, 
-                '$set': {'usage.last_request_time': current_time, 'usage.reset_time': reset_time}
-            }
-        )
-
-        # Database Update (User Stats)
         user_stats.update_one(
             {'_id': user_id},
             {
@@ -1095,29 +1073,3 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
