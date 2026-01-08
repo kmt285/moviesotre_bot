@@ -783,6 +783,7 @@ def show_vip_plans(message):
         "✅ Direct File ဖြင့် စိတ်ကြိုက်ကြည့်ရှုနိုင်မည်။\n\n"
         "💰 **Pricing:**\n"
         "• 1 Month  -  3,000 MMK\n"
+        "• 6 Month  - 10,000 MMK\n"
         "• Lifetime - 20,000 MMK\n\n"
         "Payment: KBZPay, WavePay"
     )
@@ -846,8 +847,14 @@ def handle_message(message):
         txt = (f"👋 Hello {user_name}\n\n"
                f"🪪 Your ID - `{user_id}`\n"
                f"💎 Status   -  {status_text}"
-               f"{vip_dates}\n\n"  # VIP ဆိုရင် ရက်စွဲတွေ ဒီမှာ ပေါ်လာမယ်
-               f"🎬 Movie ID ရိုက်ထည့်ပါ")
+               f"{vip_dates}\n\n" 
+               f"==============\n"
+               f"ဇာတ်ကား ID နှင့် ပိုစတာများကြည့်ရန်\n"
+               f"👑 @moviesbydatahouse\n\n"
+               f"ရရှိနိုင်သော telegram services များစုံစမ်းရန်\n"
+               f"👑 Admin - @moviestoreadmin\n"
+               
+               f"🎬ကြည့်ရှုလိုသော Movie ID နံပါတ်ပို့ပေးပါ")
         
         bot.send_message(message.chat.id, txt, parse_mode="Markdown", reply_markup=markup)
         return
@@ -1073,4 +1080,5 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
