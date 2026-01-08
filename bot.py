@@ -29,12 +29,7 @@ FREE_COOLDOWN = 120           # 120 Seconds
 VIP_SAVE_LIMIT = 15          # 15 Files Save Limit
 VIP_DELETE_TIME = 86400      # 24 Hours
 
-CAPTION_SUFFIX = "\n\n👑👑👑👑👑👑👑👑👑👑👑\n"
-"ဇာတ်ကားအားလုံး တစ်နေရာထဲမှာ စုံစုံလင်လင်ကြည့်ရှုရန် ∆ @moviestoremmsub_bot ✅\n\n"
-"မြန်မာစာတန်းထိုးရုပ်ရှင်များအစုံအလင် ကြည့်ရန် ∆  t.me/moviesbydatahouse 🔥\n\n"
-"🔞 Adult 18+ များကြည့်ရန် ∆  t.me/hdbydatahouse 🔞\n"
-"🔞 JAV https://t.me/+1GyE_y_mfIpjOTY9\n\n"
-"✅ ဆက်သွယ်ရန်🌵admin @moviestoreadmin🌵" 
+CAPTION_SUFFIX = "\n\n👑👑👑👑👑👑👑👑👑👑👑\n"ဇာတ်ကားအားလုံး တစ်နေရာထဲမှာ စုံစုံလင်လင်ကြည့်ရှုရန် ∆ @moviestoremmsub_bot ✅\n\n""မြန်မာစာတန်းထိုးရုပ်ရှင်များအစုံအလင် ကြည့်ရန် ∆  t.me/moviesbydatahouse 🔥\n\n""🔞 Adult 18+ များကြည့်ရန် ∆  t.me/hdbydatahouse 🔞\n""🔞 JAV https://t.me/+1GyE_y_mfIpjOTY9\n\n""✅ ဆက်သွယ်ရန်🌵admin @moviestoreadmin🌵""
 
 # --- Database Connection ---
 try:
@@ -1085,6 +1080,7 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
