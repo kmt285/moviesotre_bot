@@ -849,10 +849,10 @@ def handle_message(message):
                f"💎 Status   -  {status_text}"
                f"{vip_dates}\n\n" 
                f"==============\n"
-               f"ဇာတ်ကား ID နှင့် ပိုစတာများကြည့်ရန်\n"
+               f"🎖 ဇာတ်ကား ID နှင့် ပိုစတာများကြည့်ရန်\n"
                f"👑 @moviesbydatahouse\n\n"
                f"ရရှိနိုင်သော telegram services များစုံစမ်းရန်\n"
-               f"👑 Admin - @moviestoreadmin\n"
+               f"👑 Admin - @moviestoreadmin\n\n"
                
                f"🎬ကြည့်ရှုလိုသော Movie ID နံပါတ်ပို့ပေးပါ")
         
@@ -1080,6 +1080,7 @@ if __name__ == "__main__":
     set_bot_commands() # <--- ဒီ Function ကို ဒီနေရာမှာ ခေါ်ပေးရပါမယ်
     print("🤖 Bot Started...")
     bot.infinity_polling()
+
 
 
 
